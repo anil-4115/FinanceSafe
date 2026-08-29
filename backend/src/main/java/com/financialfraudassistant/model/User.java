@@ -8,6 +8,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -48,6 +50,9 @@ public class User {
 
     public Integer getId() { return id; }
     public String getEmail() { return email; }
+
+    @JsonIgnore
     public String getPasswordHash() { return passwordHash; }
+
     public String getFullName() { return fullName; }
 }

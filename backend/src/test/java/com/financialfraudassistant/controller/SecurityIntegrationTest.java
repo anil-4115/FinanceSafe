@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -153,5 +154,72 @@ class SecurityIntegrationTest {
                 .andExpect(status().isNotFound());
         mockMvc.perform(delete("/api/transactions/999999").header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void credentialData_neverAppearsInApiResponses() throws Exception {
+        String token = register("Credential Guard");
+        String auth = "Bearer " + token;
+
+        mockMvc.perform(post("/api/budgets").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("category", "Food", "monthlyLimit", 4000))))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(put("/api/profile").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "ageRange", "18-25", "employmentType", "Student", "monthlyIncome", 40000,
+                                "monthlyFixedExpenses", 8000, "savings", 10000, "existingInvestments", 0,
+                                "debt", 0, "riskTolerance", "Moderate", "investmentExperience", "Beginner",
+                                "preferredCategories", "Mutual funds"))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/goals").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "Vacation", "targetAmount", 20000, "currentAmount", 5000,
+                                "deadline", "2027-06-01", "monthlyContribution", 2000))))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/dashboard").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("passwordHash"))));
+
+        mockMvc.perform(get("/api/budgets").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("passwordHash"))));
+
+        mockMvc.perform(get("/api/goals").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("passwordHash"))));
+
+        mockMvc.perform(get("/api/profile").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("passwordHash"))));
+    }
+
+    @Test
+    void incidentsFeed_requiresAuthentication_andStripsUserIdentity() throws Exception {
+        mockMvc.perform(get("/api/incidents")).andExpect(status().isUnauthorized());
+
+        String token = register("Incident Viewer");
+        String auth = "Bearer " + token;
+        mockMvc.perform(post("/api/fraud/reports").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "channel", "SMS", "description", "Fake bank security alert scam", "amountAtRisk", 0))))
+                .andExpect(status().isCreated());
+
+        MvcResult result = mockMvc.perform(get("/api/incidents").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+        org.assertj.core.api.Assertions.assertThat(body).doesNotContain("passwordHash");
+        org.assertj.core.api.Assertions.assertThat(body).doesNotContain("@example.com");
     }
 }

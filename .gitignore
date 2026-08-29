@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+.DS_Store
+*.log
+backend/target/
+backend/.idea/
+backend/.classpath
+backend/.project
+backend/.settings/

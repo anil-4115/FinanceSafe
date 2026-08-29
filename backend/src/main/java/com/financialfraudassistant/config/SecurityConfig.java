@@ -14,6 +14,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
 import java.util.List;
 
 @Configuration
@@ -33,14 +36,28 @@ public class SecurityConfig {
             .httpBasic(AbstractHttpConfigurer::disable)
             .formLogin(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-.authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health", "/api/auth/**").permitAll()
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) ->
+                        writeError(response, HttpServletResponse.SC_UNAUTHORIZED, "Authentication is required", "UNAUTHORIZED"))
+                .accessDeniedHandler((request, response, accessDeniedException) ->
+                        writeError(response, HttpServletResponse.SC_FORBIDDEN, "Access denied", "FORBIDDEN")))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private static void writeError(HttpServletResponse response, int status, String message, String errorCode)
+            throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"success\":false,\"message\":\"" + message + "\",\"errorCode\":\""
+                + errorCode + "\",\"status\":" + status + "}");
     }
 
     @Bean

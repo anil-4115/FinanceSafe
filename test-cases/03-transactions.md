@@ -23,3 +23,19 @@ Automated coverage: ✅ `FinancialFlowIntegrationTest` (incl. merchant-optional,
 | 3.17 | Unknown columns ignored | Statement with `Ref No.`, `Branch` etc. | 200, only relevant columns used | |
 | 3.18 | Currency & thousands | `Rs 1,500.00`, `(12000)` parenthesized negative | 200, correct amount + sign | |
 | 3.19 | Type word overrides sign | `type` = `credit`/`debit` with positive amount | 200, type honored | |
+
+## Spending dashboard (frontend)
+
+Manual coverage: Spending page (`frontend/src/pages/Spending.jsx`)
+
+| # | Scenario | Steps | Expected | Actual |
+| -- | -------- | ----- | -------- | ------ |
+| 3.20 | Summary cards | Dashboard cards | Balance / Income / Spent / Suspicious computed from transactions | |
+| 3.21 | Spending trend filters | click 7D/30D/3M/1Y | Chart updates; shows real transaction income/expense | |
+| 3.22 | Category chart | Spending by category panel | Donut of expense categories from real data | |
+| 3.23 | Safety status | Transaction safety panel | 🟢 Normal / 🟡 Review / 🔴 Suspicious derived from `riskLevel` | |
+| 3.24 | Suspicious alert | suspicious transaction present | Shows reason from `riskReason` (or stored risk score) + Review link | |
+| 3.25 | Recent list | main page | Last ~6 transactions + View All | |
+| 3.26 | View All modal | open modal | Search, type/category/safety filters, sort by date/amount, pagination | |
+| 3.27 | Empty state | no transactions | Friendly messages, no breakage | |
+| 3.28 | Responsive | mobile/tablet widths | 4→2→1 column grids, modal usable | |

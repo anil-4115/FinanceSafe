@@ -71,9 +71,28 @@ transactions — in one secure, self-hosted platform.
 
 ### 5. Transactions
 - Manual entry (income / expense) with full CRUD
-- **CSV bank-statement import** (up to 1,000 rows, invalid rows reported
-  without discarding valid ones)
-- Per-transaction risk score and reason
+- **CSV bank-statement import** (up to 1,000 rows; invalid rows are reported
+  under `needsAttention` without discarding valid ones)
+- **Flexible parser:** tolerant header detection (`amount`/`credit`/`debit`/
+  `withdrawal`/`deposit`/`value`/`balance` synonyms; `Withdrawal Amt.` /
+  `Deposit Amount` split columns), optional `merchant` (defaults to `Unknown`),
+  20+ date formats (`dd/MM/yyyy`, `dd-MMM-yyyy`, `yyyy-MM-dd`, ...), currency /
+  thousands / parenthesized-negative / European-format amounts, income/expense
+  resolution from split columns, type words or sign, and ignored unknown columns
+- Per-transaction risk score, level and reason
+- **Spending dashboard** — see [Feature 5b](#5b-spending-dashboard)
+
+### 5b. Spending dashboard
+- Live summary cards — **Total Balance, Total Income, Total Spent, Suspicious
+  Transactions** (computed from the user's real transactions)
+- Spending trend **AreaChart** with 7D / 30D / 3M / 1Y filters
+- **Spending by category** chart from real expense categories
+- **Transaction safety** panel — 🟢 Normal / 🟡 Review / 🔴 Suspicious derived
+  from each transaction's anomaly `riskLevel` (no fake scores)
+- **Suspicious transaction alerts** with the real `riskReason` and a one-click
+  filtered review view
+- Recent transactions + a full "View All" modal with search, type/category/
+  safety filters, sort by date/amount, and pagination
 
 ### 6. Alerts
 - Generated for high-risk activity, anomalies and safety signals
@@ -117,6 +136,12 @@ transactions — in one secure, self-hosted platform.
 
 ### 13. Assistant (chat)
 - An in-app assistant chat with persisted conversation history
+- **Real-time data across all intents** (no canned replies): greeting → health
+  snapshot; spending → current vs average; budget → actual spend vs limit;
+  risk → flagged transactions + alerts; goal → progress %; invest →
+  personalised allocation from the user's profile; learn → financial literacy
+  score; market → live snapshot (free-text symbol detection, e.g. "TCS"); scam →
+  real analysis; plus a dedicated **MARKET** intent
 
 ### 14. Demo data
 - `POST /api/demo/load-sample` seeds a realistic profile (transactions,
@@ -133,15 +158,15 @@ transactions — in one secure, self-hosted platform.
 | Scam scanner | `ScamAnalysisService` (rules) + `FraudIntelligenceService` (ML) | ~29 text rules + URL analysis; hybrid risk aggregation via `FraudDetectionService` |
 | Anomaly | `AnomalyService` | z-score style deviation vs the user's own history |
 | Health score | `HealthScoreService` | composite of 8 weighted components |
-| Transactions | `TransactionService`, `FinanceAnalyticsService` | CRUD + CSV importer (`CsvImportService`) |
+| Transactions | `TransactionService`, `FinanceAnalyticsService` | CRUD + flexible CSV importer (amount/date/merchant tolerance, `needsAttention`) |
 | Alerts | alert logic in transaction/health flow | persisted `alerts`, resolve scoped by user |
 | Incidents | `ScamReportService` | keyword risk scoring on reports |
 | AI/ML | `FraudIntelligenceService` | naive-Bayes, Laplace smoothing, log-odds weights |
-| Planning | `BudgetService`, `GoalService`, `FinancialProfileService`, `DashboardService` | JPA + scoped by user |
+| Planning | `BudgetService`, `GoalService`, `FinancialProfileService`, `DashboardService` | JPA + scoped by user; spending dashboard consumes real data |
 | Decision/sim | `DecisionService`, `SimulatorService`, `InvestmentService` | deterministic calculators |
 | Education | `EducationService` | seeded modules + quiz attempts |
 | Products/market | `ProductService`, `MarketService` | seeded catalogue + illustrative market universe |
-| Assistant | `AssistantService` | rule/guide-based replies, persisted |
+| Assistant | `AssistantService` | real-time data across all intents; `findSymbolInMessage` for market, persisted |
 
 All endpoints are **scoped to the authenticated user** via
 `CurrentUserService.requireUser()` — the core of IDOR protection.
@@ -235,7 +260,7 @@ financial-fraud-assistant/
 │   │   ├── dto/                # request/response records
 │   │   ├── config/             # security, JWT filter, seeder
 │   │   └── exception/          # global error handling
-│   └── src/test/java/          # 75 automated tests
+│   └── src/test/java/          # 85 automated tests
 ├── frontend/                   # React + Vite SPA
 ├── docs/                       # architecture, api, db, security, ai-ml, sih, deployment
 ├── test-cases/                 # per-feature manual/API test sheets + results
@@ -272,7 +297,7 @@ The build followed the master blueprint in
 - **Deployment (Phase 8):** made CORS configurable via `CORS_ALLOWED_ORIGIN`
   (was hard-coded to localhost).
 - **Pre-deploy QA:** added `test-cases/` with per-feature sheets and a
-  `FeatureCoverageIntegrationTest` (10 tests) that closed the automated-coverage
+  `FeatureCoverageIntegrationTest` (12 tests) that closed the automated-coverage
   gaps on education, products, market, assistant, decision/simulator,
   incidents, alert-resolve and demo data.
 
@@ -303,7 +328,7 @@ Never commit real credentials or production JWT secrets.
 
 ## Testing
 
-**75 automated tests, all passing.**
+**85 automated tests, all passing.**
 
 ```powershell
 cd backend
@@ -317,6 +342,10 @@ Coverage includes:
 - Anomaly detection, health score, alert & financial flow
 - Security & IDOR (401/403, cross-user 404, secret stripping)
 - AI/ML responses (metadata, estimates, explainable signals)
+- Flexible CSV import (credit/debit & withdrawal/deposit headers, 20+ date
+  formats, currency/thousands/parenthesized amounts, type-word override,
+  `needsAttention` on bad rows, merchant-optional)
+- Assistant with real data (invest allocations from profile, market snapshot)
 - Every feature endpoint (education, products, market, assistant, decision,
   simulator, incidents, alerts, demo data)
 

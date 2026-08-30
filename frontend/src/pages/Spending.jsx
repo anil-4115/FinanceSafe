@@ -168,7 +168,7 @@ function SpendingPage() {
     return list;
   }, [transactions, search, typeFilter, categoryFilter, safetyFilter, sortBy, sortDir]);
 
-  const categories = useMemo(() => [...new Set(transactions.map((tx) => tx.category).filter(Boolean)).sort()], [transactions]);
+  const categories = useMemo(() => [...new Set(transactions.map((tx) => tx.category).filter(Boolean))].sort(), [transactions]);
 
   const pageCount = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);

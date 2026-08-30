@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { api } from '../services/api';
 
 const examples = [
-  'Bank Alert: Your account will be BLOCKED in 24 hours. KYC not updated. Share OTP to update immediately.',
+  'Your bank account will be blocked today.\nComplete KYC immediately:\nhttp://suspicious-link.example\nSend your OTP to verify.',
   'Congratulations! You won a lottery of ₹10,00,000. Click https://claim-lottery-winner.top and pay ₹5,000 processing fee to claim.',
 ];
 
@@ -11,7 +11,7 @@ function levelClass(level) {
 }
 
 function RiskGauge({ score }) {
-  const color = score >= 81 ? '#f87171' : score >= 61 ? '#fb923c' : score >= 41 ? '#facc15' : score >= 21 ? '#7dd3fc' : '#4ade80';
+  const color = score >= 75 ? '#f87171' : score >= 50 ? '#fb923c' : score >= 25 ? '#facc15' : '#4ade80';
   return (
     <div className="gauge" style={{ background: `conic-gradient(${color} ${score * 3.6}deg, rgba(148,163,184,0.18) 0deg)` }}>
       <div className="gauge-inner"><strong dangerouslySetInnerHTML={{ __html: `${score}<span>/100</span>` }} /></div>
@@ -74,10 +74,10 @@ function ScamScannerPage() {
           <h3>What the scanner looks for</h3>
           <ul className="check-list">
             <li>OTP / PIN harvesting language</li>
-            <li>Urgency and fear ("blocked", "hold your money")</li>
+            <li>Urgency and last-warning pressure</li>
             <li>Bank, government or brand impersonation</li>
-            <li>Threats like KYC, legal, or lottery pressure</li>
-            <li>Suspicious links and unfamiliar domains</li>
+            <li>KYC, lottery, payment and account-blocking threats</li>
+            <li>Suspicious links and lookalike domains</li>
           </ul>
           <p className="muted">Results are an AI risk score, not an official fraud verdict.</p>
         </aside>

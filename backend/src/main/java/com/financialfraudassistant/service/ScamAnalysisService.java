@@ -44,33 +44,35 @@ public class ScamAnalysisService {
     private static final int SCAN_CONTEXT = 1; // reserved for future ML fusion
 
     private static final List<TextRule> TEXT_RULES = List.of(
-            new TextRule("OTP_HARVESTING", "Request for OTP / PIN / password", 26, 40,
-                    List.of("share otp", "send otp", "send us otp", "verify otp", "enter otp", "submit otp",
-                            "type otp", "type the otp", "tell me otp", "give otp", "otp to confirm",
-                            "otp code", "upi pin", "atm pin", "login pin", "password", "netbanking password",
-                            "confirm otp", "otp will be", "otp is valid"),
-                    List.of("share otp", "send otp", "send us otp", "verify otp", "enter otp", "type otp",
-                            "tell me otp", "give otp", "otp to confirm", "share your upti pin", "share your upi pin",
-                            "share your pin", "upi pin", "atm pin")),
+            new TextRule("OTP_HARVESTING", "OTP / PIN / password request", 26, 40,
+                    List.of("share otp", "send otp", "send your otp", "share your otp", "your otp", "send us otp",
+                            "verify otp", "enter otp", "submit otp", "type otp", "type the otp", "tell me otp",
+                            "give otp", "otp to confirm", "otp to verify", "send otp to verify", "otp code", "upi pin",
+                            "atm pin", "login pin", "netbanking password", "confirm otp", "otp will be",
+                            "otp is valid", "share the otp"),
+                    List.of("share otp", "send otp", "send your otp", "share your otp", "send us otp", "verify otp",
+                            "enter otp", "type otp", "tell me otp", "give otp", "otp to confirm", "otp to verify",
+                            "share your upi pin", "share your pin", "upi pin", "atm pin", "share the otp")),
             new TextRule("INFO_HARVESTING", "Requests private financial details", 26, 40,
                     List.of("aadhaar", "aadhar", "pan card", "pan number", "cvv", "card number", "card no",
                             "bank details", "account details", "debit card", "credit card", "date of birth",
                             "share your details", "share your bank", "netbanking", "screen recording", "screen share"),
                     List.of("aadhaar", "pan card", "cvv", "card number", "card no", "debit card", "credit card",
                             "share your details", "share your bank", "netbanking", "screen recording", "screen share")),
-            new TextRule("KYC_SUSPENSION", "KYC / account-suspension pressure", 26, 42,
-                    List.of("kyc", "update kyc", "verify kyc", "kyc expired", "re-kyc", "kyc verification",
-                            "kyc update", "kyc is incomplete", "incomplete kyc", "kyc needs", "kyc required"),
-                    List.of("kyc expired", "re-kyc", "update kyc", "verify kyc", "kyc is incomplete",
+            new TextRule("KYC_SUSPENSION", "KYC / identity-verification request", 26, 42,
+                    List.of("kyc", "update kyc", "verify kyc", "complete kyc", "kyc expired", "re-kyc",
+                            "kyc verification", "kyc update", "kyc is incomplete", "incomplete kyc", "kyc needs",
+                            "kyc required", "identity document", "submit aadhaar", "upload aadhaar"),
+                    List.of("kyc expired", "re-kyc", "update kyc", "verify kyc", "complete kyc", "kyc is incomplete",
                             "incomplete kyc", "kyc update", "kyc verification")),
-            new TextRule("ACCOUNT_SUSPENSION", "Threat of account suspension / blocking", 22, 36,
+            new TextRule("ACCOUNT_SUSPENSION", "Account-blocking / suspension threat", 22, 36,
                     List.of("account will be blocked", "account will be suspended", "account suspended",
-                            "will be suspended", "will be blocked", "block your account", "blocked permanently",
-                            "deactivate your account", "suspend your account", "limit your account",
-                            "account was blocked", "deactivated", "account closed", "account will be closed",
+                            "will be suspended", "will be blocked", "block your account", "blocked today",
+                            "blocked permanently", "deactivate your account", "suspend your account",
+                            "limit your account", "account was blocked", "account closed", "account will be closed",
                             "permanent block"),
                     List.of("account will be blocked", "account will be suspended", "will be suspended",
-                            "will be blocked", "blocked permanently", "deactivate your account",
+                            "will be blocked", "blocked today", "blocked permanently", "deactivate your account",
                             "suspend your account", "account will be closed")),
             new TextRule("PRIZE_LOTTERY", "Prize, lottery or reward bait", 24, 40,
                     List.of("congratulations", "you won", "you have won", "winner", "prize", "lottery", "jackpot",
@@ -96,19 +98,20 @@ public class ScamAnalysisService {
                             "delivery fee", "activation fee", "verification fee", "small fee", "a fee"),
                     List.of("processing fee", "registration fee", "advance fee", "to claim your",
                             "pay first", "shipping fee", "customs fee", "delivery fee", "activation fee")),
-            new TextRule("URGENCY", "Urgency — pushes you to act immediately", 18, 26,
+            new TextRule("URGENCY", "Urgency — act immediately / last warning", 18, 26,
                     List.of("urgent", "immediately", "within 24 hours", "within 2 hours", "today only", "act now",
-                            "expires soon", "last chance", "limited time", "final reminder", "as soon as possible",
-                            "immediate action", "don't wait", "urgently"),
-                    List.of("within 24 hours", "within 2 hours", "act now", "today only", "immediately")),
+                            "expires soon", "last chance", "last warning", "limited time", "final reminder",
+                            "as soon as possible", "immediate action", "don't wait", "urgently", "do it now"),
+                    List.of("within 24 hours", "within 2 hours", "act now", "today only", "immediately",
+                            "last warning", "urgent")),
             new TextRule("LOAN_SCAM", "Advance-fee loan offer", 20, 56,
                     List.of("loan approved", "instant loan", "pre-approved loan", "personal loan",
                             "sanctioned amount", "limited period loan"),
                     List.of("loan approved", "instant loan", "pre-approved loan", "sanctioned amount")),
             new TextRule("JOB_SCAM", "Fake job / work-from-home bait", 20, 56,
                     List.of("work from home", "part time", "earn daily", "earn money", "joining bonus",
-                            "telegram job", "data entry job", "profit daily", "lazy income", "easy income",
-                            "earn 500", "earn 1000", "earn 5000", "earn rs", "earn ₹", "daily payout"),
+                            "telegram job", "join our telegram", "data entry job", "profit daily", "lazy income",
+                            "easy income", "earn 500", "earn 1000", "earn 5000", "earn rs", "earn ₹", "daily payout"),
                     List.of("work from home", "earn daily", "join our telegram", "telegram job", "data entry job",
                             "joining bonus", "earn 5000", "easy income")),
             new TextRule("FEAR_THREAT", "Threat or fear of losing money/access", 16, 30,
@@ -121,11 +124,12 @@ public class ScamAnalysisService {
                             "girlfriend", "dating", "transfer to me", "my son", "my daughter", "accident",
                             "hospital bill", "send money now"),
                     List.of("western union", "moneygram", "emergency money", "transfer to me", "send money now")),
-            new TextRule("AUTHORITY_IMPERSONATION", "Impersonates a trusted organisation", 12, 18,
+            new TextRule("AUTHORITY_IMPERSONATION", "Impersonation of a bank, brand or official", 12, 22,
                     List.of("bank", "rbi", "sbi", "hdfc", "icici", "axis", "kotak", "paytm", "phonepe",
                             "google pay", "gpay", "amazon", "flipkart", "irctc", "customer care", "support team",
-                            "government", "income tax", "police", "telecom", "airtel", "jio", "vodafone"),
-                    List.of()),
+                            "government", "income tax", "police", "bank official", "from the bank",
+                            "ministry", "airtel", "jio", "vodafone"),
+                    List.of("bank official", "from the bank", "income tax", "rbi")),
             new TextRule("DELIVERY_SCAM", "Parcel / delivery fee scam", 14, 26,
                     List.of("parcel", "delivery failed", "shipment", "customs", "courier", "package is held",
                             "undeliverable", "parcel is pending"),
@@ -150,7 +154,7 @@ public class ScamAnalysisService {
     private static final Set<String> SUSPECT_TLDS = Set.of("xyz", "top", "loan", "bond", "club", "gift", "click",
             "download", "zip", "tk", "ml", "ga", "cf", "icu", "work", "online", "site", "info", "biz", "vip", "win",
             "support", "accountants", "ru", "cn", "su", "cc", "rest", "cyou", "live", "pro", "ltd", "delivery",
-            "shop", "store", "email", "today");
+            "shop", "store", "email", "today", "example", "invalid", "test");
     private static final Map<String, List<String>> BRAND_DOMAINS = Map.ofEntries(
             Map.entry("paytm", List.of("paytm.com")),
             Map.entry("phonepe", List.of("phonepe.com", "phonepe.in")),
@@ -211,9 +215,11 @@ public class ScamAnalysisService {
 
         for (TextRule rule : TEXT_RULES) {
             if (seenKinds.contains(rule.kind())) continue;
-            List<String> matched = rule.keywords().stream().filter(lower::contains).toList();
+            List<String> matched = distinctEvidence(rule.keywords().stream()
+                    .filter(keyword -> matchesPhrase(lower, keyword))
+                    .toList());
             if (matched.isEmpty()) continue;
-            boolean decisive = rule.decisive().stream().anyMatch(lower::contains);
+            boolean decisive = rule.decisive().stream().anyMatch(keyword -> matchesPhrase(lower, keyword));
             int weight = decisive ? rule.decisiveWeight() : rule.weight();
             if (matched.size() >= 2) {
                 weight += Math.min(10, (matched.size() - 1) * 5);
@@ -384,32 +390,55 @@ public class ScamAnalysisService {
 
     private String confidence(int score, List<FraudIndicator> indicators) {
         if (score >= 75 && indicators.size() >= 2) return "High";
-        if (score >= 40) return "Medium";
+        if (score >= 50) return "Medium";
         return "Low";
     }
 
+    /** Blueprint bands: 0–24 LOW, 25–49 MODERATE, 50–74 HIGH, 75–100 CRITICAL. */
     private String level(int score) {
-        if (score <= 40) return "Low";
-        if (score <= 60) return "Moderate";
-        if (score <= 80) return "High";
+        if (score <= 24) return "Low";
+        if (score <= 49) return "Moderate";
+        if (score <= 74) return "High";
         return "Critical";
     }
 
     private String buildSummary(FraudAnalysis.InputType type, String input, int score, String riskLabel,
                                 String scamType, List<FraudIndicator> indicators) {
         StringBuilder summary = new StringBuilder();
-        String preview = input.length() > 180 ? input.substring(0, 180) + "…" : input;
-        summary.append("Analysed ").append(type == FraudAnalysis.InputType.URL ? "a URL" : "a message").append(": \"").append(preview).append("\".\n");
-        summary.append("The AI risk engine assigned a score of ").append(score).append("/100 (").append(riskLabel).append("). ");
-        if (indicators.isEmpty()) {
-            summary.append("No known scam patterns were detected. Treat it with normal caution, but remember scams constantly evolve.");
+        summary.append(riskLabel.toUpperCase(Locale.ROOT)).append(" — ").append(score).append("/100");
+        if (type == FraudAnalysis.InputType.URL) {
+            summary.append(" (URL scan). ");
         } else {
-            summary.append("Possible scam type: ").append(scamType).append(". ");
-            summary.append("Detected ").append(indicators.size()).append(" signalling tactic(s): ")
-                    .append(indicators.stream().map(indicator -> indicator.getLabel().replace(" — ", ": ")).toList().toString().toLowerCase(Locale.ROOT)).append(".");
+            summary.append(". ");
         }
-        summary.append("\nNote: this is an AI-generated risk assessment for awareness; it is not an official bank or law-enforcement determination.");
+        if (indicators.isEmpty()) {
+            summary.append("No known scam patterns were detected. Treat unexpected messages with normal caution.");
+        } else {
+            summary.append("Possible type: ").append(scamType).append(". Why: ");
+            summary.append(indicators.stream().map(FraudIndicator::getLabel).reduce((a, b) -> a + "; " + b).orElse(""));
+            summary.append(". Do not share OTP, click unknown links, or transfer money until you verify through the official channel.");
+        }
         return summary.toString();
+    }
+
+    /**
+     * Matches a phrase in the message. Multi-word phrases use substring search.
+     * Single tokens use word boundaries so "bank" does not fire on "banking".
+     */
+    private boolean matchesPhrase(String lower, String keyword) {
+        String needle = keyword.toLowerCase(Locale.ROOT);
+        if (needle.isBlank()) return false;
+        if (needle.contains(" ") || needle.startsWith(".") || needle.length() <= 3) {
+            return lower.contains(needle);
+        }
+        return Pattern.compile("\\b" + Pattern.quote(needle) + "\\b").matcher(lower).find();
+    }
+
+    /** Drop keywords that are already covered by a longer matched phrase (same evidence). */
+    private List<String> distinctEvidence(List<String> matched) {
+        return matched.stream()
+                .filter(keyword -> matched.stream().noneMatch(other -> !other.equals(keyword) && other.contains(keyword)))
+                .toList();
     }
 
     private static String truncate(String value, int max) {

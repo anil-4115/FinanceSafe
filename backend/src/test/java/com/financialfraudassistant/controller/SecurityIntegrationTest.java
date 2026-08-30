@@ -204,6 +204,26 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void intelligenceEndpoint_requiresAuthentication_andReturnsModel() throws Exception {
+        mockMvc.perform(get("/api/fraud/intelligence")).andExpect(status().isUnauthorized());
+
+        String token = register("Intelligence Viewer");
+        String auth = "Bearer " + token;
+        mockMvc.perform(get("/api/fraud/intelligence").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ruleWeight").value(0.7))
+                .andExpect(jsonPath("$.aiWeight").value(0.3));
+
+        mockMvc.perform(post("/api/fraud/intelligence/analyze").header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("content",
+                                "Your bank account will be blocked, share your OTP to verify."))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estimate").isNumber())
+                .andExpect(jsonPath("$.signals").isArray());
+    }
+
+    @Test
     void incidentsFeed_requiresAuthentication_andStripsUserIdentity() throws Exception {
         mockMvc.perform(get("/api/incidents")).andExpect(status().isUnauthorized());
 

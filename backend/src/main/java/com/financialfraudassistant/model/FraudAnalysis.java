@@ -36,6 +36,10 @@ public class FraudAnalysis {
     private String riskLabel;
     @Column(name = "scam_type")
     private String scamType;
+    @Column(name = "category")
+    private String category;
+    @Column(name = "ai_estimate")
+    private Integer aiEstimate;
     @Column(nullable = false)
     private String confidence;
     @Column(columnDefinition = "TEXT")
@@ -49,12 +53,19 @@ public class FraudAnalysis {
 
     public FraudAnalysis(User user, InputType inputType, String input, int riskScore, String riskLabel,
                          String scamType, String confidence, String summary) {
+        this(user, inputType, input, riskScore, riskLabel, scamType, null, null, confidence, summary);
+    }
+
+    public FraudAnalysis(User user, InputType inputType, String input, int riskScore, String riskLabel,
+                         String scamType, String category, Integer aiEstimate, String confidence, String summary) {
         this.user = user;
         this.inputType = inputType;
         this.input = input;
         this.riskScore = riskScore;
         this.riskLabel = riskLabel;
         this.scamType = scamType;
+        this.category = category;
+        this.aiEstimate = aiEstimate;
         this.confidence = confidence;
         this.summary = summary;
     }
@@ -66,6 +77,8 @@ public class FraudAnalysis {
     public Integer getRiskScore() { return riskScore; }
     public String getRiskLabel() { return riskLabel; }
     public String getScamType() { return scamType; }
+    public String getCategory() { return category; }
+    public Integer getAiEstimate() { return aiEstimate; }
     public String getConfidence() { return confidence; }
     public String getSummary() { return summary; }
     public LocalDateTime getCreatedAt() { return createdAt; }

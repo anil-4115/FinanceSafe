@@ -68,7 +68,7 @@ function MainLayout() {
         <div className="brand-block">
           <div className="brand-mark">F</div>
           <div>
-            <p className="eyebrow">Smart India Hackathon</p>
+            <p className="eyebrow">Smart Financial Fraud Assistant</p>
             <h2>FinanceSafe</h2>
           </div>
         </div>

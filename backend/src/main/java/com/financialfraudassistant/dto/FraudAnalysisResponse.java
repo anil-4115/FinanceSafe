@@ -36,17 +36,22 @@ public record FraudAnalysisResponse(
 
     public static List<String> recommendedActions(int riskScore) {
         if (riskScore < 25) {
-            return List.of("This looks harmless, but treat every unexpected message with caution.");
+            return List.of("This looks low risk. Still open the official app yourself if you need to check anything.");
         }
-        if (riskScore < 60) {
-            return List.of("Do not respond with personal details such as OTPs, PINs or passwords.",
-                    "Verify the sender through an official app or website before acting.",
+        if (riskScore < 50) {
+            return List.of("Do not share OTP, PIN, passwords or KYC documents.",
+                    "Verify the sender through the official app or website — never via this message.",
                     "If in doubt, ignore and delete the message.");
         }
-        return List.of("Do not click any link, download any file, or share your OTP/UPI PIN.",
-                "Open the official banking application or website manually — never via links in the message.",
-                "Verify through official support channels before taking any step.",
-                "Report/block the sender and inform your bank if money has already moved.",
-                "Keep a screenshot as evidence for a formal incident report.");
+        if (riskScore < 75) {
+            return List.of("Treat this as a likely scam. Do not click links or approve payments.",
+                    "Do not share OTP, PIN or personal documents.",
+                    "Verify only through official channels you already trust.",
+                    "Keep a screenshot if you need to report it.");
+        }
+        return List.of("Do not click the link or share credentials/OTP.",
+                "Do not transfer money or pay any processing fee.",
+                "Verify through the official banking app or a number printed on your card.",
+                "Report the sender, and if money has moved call 1930 / cybercrime.gov.in.");
     }
 }

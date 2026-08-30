@@ -105,7 +105,7 @@ public class DecisionService {
 
         int score = clamp((int) Math.round(healthBefore * 0.5 + dtiScore * 0.5));
         List<String> reasons = new ArrayList<>();
-        reasons.add("Estimated monthly instalment: " + money(emi) + " over " + tenure + " months at " + interest.setScale(0) + "% interest.");
+        reasons.add("Estimated monthly instalment: " + money(emi) + " over " + tenure + " months at " + interest.setScale(0, RoundingMode.HALF_UP) + "% interest.");
         reasons.add("The instalment would use " + dti.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP) + "% of your monthly income (a healthy loan keeps this under ~30%).");
         reasons.add("Your financial health would move from " + healthBefore + "/100 to about " + healthAfter + "/100.");
         if (emi.compareTo(surplus) > 0) reasons.add("The instalment exceeds your current monthly surplus — this loan would pressure your cash flow.");

@@ -58,6 +58,50 @@ class ScamAnalysisServiceTest {
     }
 
     @Test
+    void sihKycDemo_isCritical_withFivePlusIndicators() {
+        String demo = "Your bank account will be blocked today.\nComplete KYC immediately:\n"
+                + "http://suspicious-link.example\nSend your OTP to verify.";
+        FraudAnalysis result = analyze(demo);
+        assertEquals("Critical", result.getRiskLabel());
+        assertTrue(result.getRiskScore() >= 75);
+        assertTrue(result.getIndicators().size() >= 5);
+        assertTrue(hasKind(demo, "KYC_SUSPENSION"));
+        assertTrue(hasKind(demo, "OTP_HARVESTING"));
+        assertTrue(hasKind(demo, "URGENCY"));
+        assertTrue(hasKind(demo, "ACCOUNT_SUSPENSION"));
+    }
+
+    @Test
+    void safeStatement_isLow() {
+        FraudAnalysis result = analyze("Your monthly statement is ready. Please sign in using your normal banking application.");
+        assertEquals("Low", result.getRiskLabel());
+        assertEquals("Likely Safe", result.getScamType());
+    }
+
+    @Test
+    void otpScam_isHighOrCritical() {
+        FraudAnalysis result = analyze("This is HDFC Bank. Share the OTP immediately or your account will be blocked. Pay the verification fee.");
+        assertTrue(result.getRiskScore() >= 50, "Expected HIGH/CRITICAL, got " + result.getRiskScore());
+        assertTrue(hasKind("This is HDFC Bank. Share the OTP immediately or your account will be blocked. Pay the verification fee.",
+                "OTP_HARVESTING"));
+    }
+
+    @Test
+    void lotteryScam_isHighOrCritical() {
+        FraudAnalysis result = analyze("Congratulations! You won a lottery prize. Claim your winnings after paying the processing fee.");
+        assertTrue(result.getRiskScore() >= 50, "Expected HIGH/CRITICAL, got " + result.getRiskScore());
+        assertEquals("Lottery / Advance-Fee Scam", result.getScamType());
+    }
+
+    @Test
+    void impersonationScam_isHighOrCritical() {
+        FraudAnalysis result = analyze("Income tax department: legal action today. Bank official requires your OTP and account details immediately.");
+        assertTrue(result.getRiskScore() >= 50, "Expected HIGH/CRITICAL, got " + result.getRiskScore());
+        assertTrue(hasKind("Income tax department: legal action today. Bank official requires your OTP and account details immediately.",
+                "AUTHORITY_IMPERSONATION"));
+    }
+
+    @Test
     void kycScam_isCritical_andDetectsMultipleIndicators() {
         FraudAnalysis result = analyze(KYC_SCAM);
         assertEquals("Critical", result.getRiskLabel());
@@ -120,8 +164,14 @@ class ScamAnalysisServiceTest {
     @Test
     void genuineBankAlert_isLow() {
         FraudAnalysis result = analyze(GENUINE_BANK_ALERT);
+        String indicatorDump = result.getIndicators().stream()
+                .map(indicator -> indicator.getKind() + "=" + indicator.getWeight())
+                .reduce((a, b) -> a + ", " + b).orElse("none");
         assertEquals("Low", result.getRiskLabel());
-        assertEquals("Likely Safe", result.getScamType());
+        assertEquals("Likely Safe", result.getScamType(),
+                "kinds/weights were: " + indicatorDump);
+        assertTrue(result.getIndicators().stream().allMatch(indicator -> indicator.getWeight() < 24),
+                "all indicators should be weak, got: " + indicatorDump);
     }
 
     @Test

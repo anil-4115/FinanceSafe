@@ -13,13 +13,14 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 public class TransactionService {
@@ -61,60 +62,190 @@ public class TransactionService {
         try {
             List<String> lines = Arrays.asList(new String(file.getBytes(), StandardCharsets.UTF_8).replace("\uFEFF", "").split("\\R"));
             if (lines.size() < 2) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The CSV file has no transaction rows");
-            List<String> headers = parseRow(lines.get(0)).stream().map(value -> value.trim().toLowerCase(Locale.ROOT)).toList();
-            Map<String, Integer> column = java.util.stream.IntStream.range(0, headers.size()).boxed().collect(Collectors.toMap(headers::get, Function.identity(), (first, ignored) -> first));
-            requireColumn(column, "date", "transaction_date");
-            requireAmountColumn(column);
-            List<FinancialTransaction> transactions = new ArrayList<>(); List<String> errors = new ArrayList<>();
+            List<String> headers = parseRow(lines.get(0));
+            Map<ColumnKind, Integer> column = detectColumns(headers);
+            if (!column.containsKey(ColumnKind.DATE) || !hasAmountColumn(column)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "CSV must include a date column and an amount column. Detected columns: " +
+                                (headers.isEmpty() ? "none" : String.join(", ", headers)) +
+                                ". Amount columns can be named amount, transaction amount, credit, debit, withdrawal, deposit, value etc.");
+            }
+            List<FinancialTransaction> transactions = new ArrayList<>();
+            List<String> needsAttention = new ArrayList<>();
             for (int row = 1; row < lines.size() && row <= MAX_IMPORT_ROWS; row++) {
                 if (lines.get(row).isBlank()) continue;
                 try {
                     List<String> values = parseRow(lines.get(row));
-                    LocalDate date = LocalDate.parse(value(column, values, "date", "transaction_date"));
-                    String merchant = optional(column, values, "merchant", "description", "narration", "payee", "merchant_name", "transaction description").trim();
-                    if (merchant.isBlank()) merchant = "Unknown";
-                    AmountValue amountValue = resolveAmount(column, values);
-                    String rawType = optional(column, values, "type", "transaction_type");
-                    FinancialTransaction.Type type = amountValue.type() != null ? amountValue.type() : resolveType(rawType, amountValue.rawSign());
-                    String category = optional(column, values, "category");
-                    transactions.add(new FinancialTransaction(user, date, merchant, amountValue.amount(), type,
-                            category.isBlank() ? "Uncategorised" : category.trim(), FinancialTransaction.Source.CSV, optional(column, values, "notes")));
-                } catch (Exception exception) { errors.add("Row " + (row + 1) + ": " + exception.getMessage()); }
+                    transactions.add(buildTransaction(user, column, values));
+                } catch (Exception exception) {
+                    needsAttention.add("Row " + (row + 1) + ": " + exception.getMessage());
+                }
             }
+            if (lines.size() - 1 > MAX_IMPORT_ROWS) needsAttention.add("Only the first " + MAX_IMPORT_ROWS + " rows were imported");
             List<FinancialTransaction> savedTransactions = repository.saveAll(transactions);
             savedTransactions.forEach(fraudDetectionService::analyseTransaction);
-            if (lines.size() - 1 > MAX_IMPORT_ROWS) errors.add("Only the first " + MAX_IMPORT_ROWS + " rows were imported");
-            return new CsvImportResponse(transactions.size(), errors);
+            return new CsvImportResponse(transactions.size(), needsAttention);
         } catch (IOException exception) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not read the CSV file"); }
     }
-    private void requireColumn(Map<String, Integer> columns, String... names) { if (findColumn(columns, names) == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV must include a " + names[0] + " column"); }
-    private void requireAmountColumn(Map<String, Integer> columns) {
-        if (findColumn(columns, "amount", "transaction amount", "transaction_amount", "credit", "debit", "deposit", "withdrawal", "value", "credit amount", "debit amount") == null)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV must include an amount column. Use one of: amount, transaction amount, credit, debit, deposit, withdrawal or value");
-    }
-    private record AmountValue(BigDecimal amount, FinancialTransaction.Type type, BigDecimal rawSign) { }
-    private AmountValue resolveAmount(Map<String, Integer> columns, List<String> values) {
-        BigDecimal straight = parseAmountValue(optional(columns, values, "amount", "transaction amount", "transaction_amount", "value"));
-        if (straight != null) {
-            return new AmountValue(straight.abs(), null, straight);
+
+    private enum ColumnKind { DATE, MERCHANT, AMOUNT, CREDIT, DEBIT, TYPE, CATEGORY, NOTES, IGNORE }
+
+    private Map<ColumnKind, Integer> detectColumns(List<String> headers) {
+        Map<ColumnKind, Integer> column = new java.util.EnumMap<>(ColumnKind.class);
+        for (int i = 0; i < headers.size(); i++) {
+            ColumnKind kind = kindOf(normalize(headers.get(i)));
+            if (kind != ColumnKind.IGNORE) column.putIfAbsent(kind, i);
         }
-        String credit = val(columns, values, "credit", "credit amount");
-        String debit = val(columns, values, "debit", "debit amount");
-        String deposit = val(columns, values, "deposit");
-        String withdrawal = val(columns, values, "withdrawal");
-        if (!credit.isBlank()) return new AmountValue(parse(credit).abs(), FinancialTransaction.Type.INCOME, null);
-        if (!deposit.isBlank()) return new AmountValue(parse(deposit).abs(), FinancialTransaction.Type.INCOME, null);
-        if (!debit.isBlank()) return new AmountValue(parse(debit).abs(), FinancialTransaction.Type.EXPENSE, null);
-        if (!withdrawal.isBlank()) return new AmountValue(parse(withdrawal).abs(), FinancialTransaction.Type.EXPENSE, null);
-        throw new IllegalArgumentException("amount is required");
+        return column;
     }
-    private BigDecimal parseAmountValue(String raw) { if (raw == null || raw.isBlank()) return null; String cleaned = raw.replace(",", "").replace("₹", "").replace("Rs", "").trim(); if (cleaned.isEmpty()) return null; return new BigDecimal(cleaned); }
-    private BigDecimal parse(String raw) { return parseAmountValue(raw); }
-    private String val(Map<String, Integer> columns, List<String> values, String... names) { Integer index = findColumn(columns, names); return index == null || index >= values.size() ? "" : values.get(index).replace(",", "").replace("₹", "").trim(); }
-    private String value(Map<String, Integer> columns, List<String> values, String... names) { Integer index = findColumn(columns, names); if (index == null || index >= values.size() || values.get(index).isBlank()) throw new IllegalArgumentException(names[0] + " is required"); return values.get(index); }
-    private String optional(Map<String, Integer> columns, List<String> values, String... names) { Integer index = findColumn(columns, names); return index == null || index >= values.size() ? "" : values.get(index); }
-    private Integer findColumn(Map<String, Integer> columns, String... names) { for (String name : names) if (columns.containsKey(name)) return columns.get(name); return null; }
-    private FinancialTransaction.Type resolveType(String rawType, BigDecimal amount) { if (amount.signum() < 0 || rawType.equalsIgnoreCase("expense") || rawType.equalsIgnoreCase("debit")) return FinancialTransaction.Type.EXPENSE; return FinancialTransaction.Type.INCOME; }
+
+    private boolean hasAmountColumn(Map<ColumnKind, Integer> column) {
+        return column.containsKey(ColumnKind.AMOUNT) || column.containsKey(ColumnKind.CREDIT) || column.containsKey(ColumnKind.DEBIT);
+    }
+
+    private String normalize(String header) {
+        return header == null ? "" : header.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private ColumnKind kindOf(String n) {
+        if (n.isEmpty()) return ColumnKind.IGNORE;
+        if (n.contains("date")) return ColumnKind.DATE;
+        if (startsAny(n, "credit", "cr") || n.equals("cr")) return ColumnKind.CREDIT;
+        if (startsAny(n, "debit", "withdrawalamt", "withdrawalamount", "withdrawal", "withdrawn", "withdr") || n.equals("dr")) return ColumnKind.DEBIT;
+        if (startsAny(n, "depositamt", "depositamount", "deposit")) return ColumnKind.CREDIT;
+        if (startsAny(n, "txnamount", "transactionamount", "transactionamt", "amount", "amt", "balance", "value")) return ColumnKind.AMOUNT;
+        if (n.contains("type")) return ColumnKind.TYPE;
+        if (n.contains("category") || n.contains("head")) return ColumnKind.CATEGORY;
+        if (containsAny(n, "note", "remark")) return ColumnKind.NOTES;
+        if (containsAny(n, "merchant", "narration", "particular", "payee", "description", "details", "beneficiary", "counterparty", "party", "name")) return ColumnKind.MERCHANT;
+        return ColumnKind.IGNORE;
+    }
+
+    private boolean startsAny(String value, String... prefixes) { for (String p : prefixes) if (value.startsWith(p)) return true; return false; }
+    private boolean containsAny(String value, String... tokens) { for (String t : tokens) if (value.contains(t)) return true; return false; }
+
+    private FinancialTransaction buildTransaction(User user, Map<ColumnKind, Integer> column, List<String> values) {
+        String dateRaw = cell(column, values, ColumnKind.DATE);
+        if (dateRaw.isBlank()) throw new IllegalArgumentException("date is required");
+        LocalDate date = parseDate(dateRaw);
+        if (date == null) throw new IllegalArgumentException("cannot parse date '" + dateRaw + "'");
+        String merchant = cell(column, values, ColumnKind.MERCHANT).trim();
+        if (merchant.isBlank()) merchant = "Unknown";
+        String category = cell(column, values, ColumnKind.CATEGORY).trim();
+        if (category.isBlank()) category = "Uncategorised";
+        BigDecimal amount; FinancialTransaction.Type type;
+        if (column.containsKey(ColumnKind.AMOUNT)) {
+            BigDecimal raw = parseAmount(cell(column, values, ColumnKind.AMOUNT));
+            FinancialTransaction.Type hinted = typeFromWord(cell(column, values, ColumnKind.TYPE));
+            type = hinted != null ? hinted : (raw.signum() < 0 ? FinancialTransaction.Type.EXPENSE : FinancialTransaction.Type.INCOME);
+            amount = raw.abs();
+        } else if (column.containsKey(ColumnKind.CREDIT)) {
+            BigDecimal creditRaw = parseAmount(cell(column, values, ColumnKind.CREDIT));
+            BigDecimal debitRaw = parseAmount(cell(column, values, ColumnKind.DEBIT));
+            boolean hasCredit = creditRaw != null && creditRaw.signum() != 0;
+            boolean hasDebit = debitRaw != null && debitRaw.signum() != 0;
+            if (hasCredit && hasDebit) {
+                amount = creditRaw.abs().subtract(debitRaw.abs());
+                type = amount.signum() < 0 ? FinancialTransaction.Type.EXPENSE : FinancialTransaction.Type.INCOME;
+                amount = amount.abs();
+            } else if (hasCredit) { amount = creditRaw.abs(); type = FinancialTransaction.Type.INCOME; }
+            else if (hasDebit) { amount = debitRaw.abs(); type = FinancialTransaction.Type.EXPENSE; }
+            else throw new IllegalArgumentException("no credit or debit amount");
+        } else if (column.containsKey(ColumnKind.DEBIT)) {
+            BigDecimal debitRaw = parseAmount(cell(column, values, ColumnKind.DEBIT));
+            if (debitRaw == null || debitRaw.signum() == 0) throw new IllegalArgumentException("debit amount is empty");
+            amount = debitRaw.abs(); type = FinancialTransaction.Type.EXPENSE;
+        } else {
+            throw new IllegalArgumentException("no amount column value");
+        }
+        if (amount == null) throw new IllegalArgumentException("cannot parse amount");
+        return new FinancialTransaction(user, date, merchant, amount, type, category,
+                FinancialTransaction.Source.CSV, clean(cell(column, values, ColumnKind.NOTES)));
+    }
+
+    private String cell(Map<ColumnKind, Integer> column, List<String> values, ColumnKind kind) {
+        Integer index = column.get(kind);
+        return index == null || index >= values.size() ? "" : values.get(index);
+    }
+
+    private static final List<DateTimeFormatter> DATE_FORMATS = List.of(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("yyyy/MM/dd", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("yyyyMMdd", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("d/M/yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("MM/dd/yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("M/d/yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("dd-MM-yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("d-M-yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("d.M.yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("dd-MMM-yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("d-MMM-yy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("dd/MMM/yyyy", Locale.ENGLISH)
+    );
+
+    private LocalDate parseDate(String raw) {
+        String candidate = raw.trim();
+        if (candidate.contains(" ")) {
+            String[] parts = candidate.split("\\s+");
+            LocalDate fromFirstToken = tryFormats(parts[0].trim(), parts.length > 1 ? parts[1].trim() : null);
+            if (fromFirstToken != null) return fromFirstToken;
+        }
+        return tryFormats(candidate, null);
+    }
+
+    private LocalDate tryFormats(String candidate, String secondToken) {
+        for (DateTimeFormatter format : DATE_FORMATS) {
+            try { return LocalDate.parse(candidate, format); } catch (DateTimeParseException ignored) { }
+        }
+        return null;
+    }
+
+    private BigDecimal parseAmount(String cell) {
+        if (cell == null || cell.isBlank()) return null;
+        String s = cell.trim();
+        boolean negative = (s.startsWith("(") && s.endsWith(")")) || s.startsWith("-") || s.startsWith("\u2212");
+        String core = s.replaceAll("[^0-9.,]", "");
+        if (core.isEmpty()) return null;
+        boolean hasDot = core.indexOf('.') >= 0;
+        boolean hasComma = core.indexOf(',') >= 0;
+        String normalized;
+        if (hasDot && hasComma) {
+            char decimal = core.lastIndexOf('.') > core.lastIndexOf(',') ? '.' : ',';
+            char thousands = decimal == '.' ? ',' : '.';
+            core = core.replace(String.valueOf(thousands), "");
+            if (decimal == ',') core = core.replace(",", ".");
+            normalized = core;
+        } else if (hasComma) {
+            normalized = core.replace(",", "");
+        } else if (hasDot) {
+            int dots = 0;
+            for (int i = 0; i < core.length(); i++) if (core.charAt(i) == '.') dots++;
+            normalized = dots > 1 ? core.replace(".", "") : core;
+        } else {
+            normalized = core;
+        }
+        if (negative) normalized = "-" + normalized;
+        try {
+            BigDecimal value = new BigDecimal(normalized.isEmpty() ? "0" : normalized);
+            return negative ? value.abs().negate() : value;
+        } catch (NumberFormatException exception) { return null; }
+    }
+
+    private FinancialTransaction.Type typeFromWord(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String word = raw.toLowerCase(Locale.ROOT);
+        if (containsAny(word, "expense", "debit", "withdrawal", "withdraw", "paid", "dr")) return FinancialTransaction.Type.EXPENSE;
+        if (containsAny(word, "income", "credit", "deposit", "received", "cr", "salary")) return FinancialTransaction.Type.INCOME;
+        return null;
+    }
     private String clean(String value) { return value == null || value.isBlank() ? null : value.trim(); }
     private List<String> parseRow(String row) { List<String> values = new ArrayList<>(); StringBuilder current = new StringBuilder(); boolean quoted = false; for (int i = 0; i < row.length(); i++) { char character = row.charAt(i); if (character == '"' && i + 1 < row.length() && row.charAt(i + 1) == '"') { current.append(character); i++; } else if (character == '"') quoted = !quoted; else if (character == ',' && !quoted) { values.add(current.toString()); current.setLength(0); } else current.append(character); } values.add(current.toString()); return values; }
 }

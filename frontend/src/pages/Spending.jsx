@@ -37,8 +37,8 @@ function SpendingPage() {
     try {
       const body = new FormData(); body.append('file', file);
       const { data } = await api.post('/transactions/import', body, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setMessage(`${data.imported} transaction(s) imported.${data.errors?.length ? ` ${data.errors.length} row(s) need attention.` : ''}`);
-      if (data.errors?.length) setError(data.errors.slice(0, 3).join(' '));
+      setMessage(`${data.imported} transaction(s) imported.${data.needsAttention?.length ? ` ${data.needsAttention.length} row(s) need attention.` : ''}`);
+      if (data.needsAttention?.length) setError(data.needsAttention.slice(0, 3).join(' '));
       await loadTransactions();
     } catch (requestError) { setError(requestError.response?.data?.message || 'Could not import this CSV file.'); }
     finally { setIsImporting(false); event.target.value = ''; }
@@ -60,7 +60,7 @@ function SpendingPage() {
         </form>
         <div className="panel csv-import">
           <div className="panel-header"><h3>Import bank statement</h3><span>CSV only</span></div>
-          <p>CSV headers required: <code>date</code>, <code>amount</code> (or <code>credit</code>/<code>debit</code>, <code>deposit</code>/<code>withdrawal</code>). Optional: <code>merchant</code> (also <code>description</code>, <code>narration</code>, <code>payee</code>), <code>type</code>, <code>category</code>, <code>notes</code>. Rows without a merchant are shown as <code>Unknown</code>.</p>
+          <p>Bank-statement headers are auto-detected. Date can be <code>Date</code>, <code>Txn Date</code>, <code>Value Date</code> etc. in many formats (dd/MM/yyyy, dd-MM-yyyy, dd-MMM-yyyy...). Amount can be a single <code>amount</code> column or split <code>credit</code>/<code>debit</code> / <code>deposit</code>/<code>withdrawal</code> / <code>Withdrawal Amt.</code>/<code>Deposit Amount</code>. Merchant can be <code>merchant</code>, <code>narration</code>, <code>particulars</code>, <code>description</code>, <code>payee</code> etc. Unknown columns are ignored; unreadable rows are listed as needing attention without failing the whole file.</p>
           <label className="file-picker">{isImporting ? 'Importing...' : 'Choose CSV file'}<input type="file" accept=".csv,text/csv" onChange={importCsv} disabled={isImporting} /></label>
           <p className="muted">Negative amounts and debit rows are saved as expenses; other rows are treated as income.</p>
         </div>

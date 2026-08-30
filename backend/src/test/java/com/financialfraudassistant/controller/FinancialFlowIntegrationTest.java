@@ -143,4 +143,18 @@ class FinancialFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].merchant").value("Swiggy"));
     }
+
+    @Test
+    void csvImport_withCreditAndDebitColumns_importsIncomeAndExpenses() throws Exception {
+        String token = registerAndGetToken();
+        String csv = "date,description,credit,debit,category\n2026-08-08,Salary,45000,,Salary\n2026-08-09,Rent,,12000,Housing\n";
+        MockMultipartFile file = new MockMultipartFile("file", "bank.csv", "text/csv", csv.getBytes());
+        mockMvc.perform(multipart("/api/transactions/import").file(file).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imported").value(2));
+        mockMvc.perform(get("/api/transactions").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].transactionType").value("EXPENSE"))
+                .andExpect(jsonPath("$[1].transactionType").value("INCOME"));
+    }
 }

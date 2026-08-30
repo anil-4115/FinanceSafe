@@ -63,7 +63,8 @@ public class TransactionService {
             if (lines.size() < 2) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The CSV file has no transaction rows");
             List<String> headers = parseRow(lines.get(0)).stream().map(value -> value.trim().toLowerCase(Locale.ROOT)).toList();
             Map<String, Integer> column = java.util.stream.IntStream.range(0, headers.size()).boxed().collect(Collectors.toMap(headers::get, Function.identity(), (first, ignored) -> first));
-            requireColumn(column, "date", "transaction_date"); requireColumn(column, "amount");
+            requireColumn(column, "date", "transaction_date");
+            requireAmountColumn(column);
             List<FinancialTransaction> transactions = new ArrayList<>(); List<String> errors = new ArrayList<>();
             for (int row = 1; row < lines.size() && row <= MAX_IMPORT_ROWS; row++) {
                 if (lines.get(row).isBlank()) continue;
@@ -72,11 +73,11 @@ public class TransactionService {
                     LocalDate date = LocalDate.parse(value(column, values, "date", "transaction_date"));
                     String merchant = optional(column, values, "merchant", "description", "narration", "payee", "merchant_name", "transaction description").trim();
                     if (merchant.isBlank()) merchant = "Unknown";
-                    BigDecimal amount = new BigDecimal(value(column, values, "amount").replace(",", "").replace("₹", "").trim());
+                    AmountValue amountValue = resolveAmount(column, values);
                     String rawType = optional(column, values, "type", "transaction_type");
-                    FinancialTransaction.Type type = resolveType(rawType, amount);
+                    FinancialTransaction.Type type = amountValue.type() != null ? amountValue.type() : resolveType(rawType, amountValue.rawSign());
                     String category = optional(column, values, "category");
-                    transactions.add(new FinancialTransaction(user, date, merchant, amount.abs(), type,
+                    transactions.add(new FinancialTransaction(user, date, merchant, amountValue.amount(), type,
                             category.isBlank() ? "Uncategorised" : category.trim(), FinancialTransaction.Source.CSV, optional(column, values, "notes")));
                 } catch (Exception exception) { errors.add("Row " + (row + 1) + ": " + exception.getMessage()); }
             }
@@ -87,6 +88,29 @@ public class TransactionService {
         } catch (IOException exception) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not read the CSV file"); }
     }
     private void requireColumn(Map<String, Integer> columns, String... names) { if (findColumn(columns, names) == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV must include a " + names[0] + " column"); }
+    private void requireAmountColumn(Map<String, Integer> columns) {
+        if (findColumn(columns, "amount", "transaction amount", "transaction_amount", "credit", "debit", "deposit", "withdrawal", "value", "credit amount", "debit amount") == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CSV must include an amount column. Use one of: amount, transaction amount, credit, debit, deposit, withdrawal or value");
+    }
+    private record AmountValue(BigDecimal amount, FinancialTransaction.Type type, BigDecimal rawSign) { }
+    private AmountValue resolveAmount(Map<String, Integer> columns, List<String> values) {
+        BigDecimal straight = parseAmountValue(optional(columns, values, "amount", "transaction amount", "transaction_amount", "value"));
+        if (straight != null) {
+            return new AmountValue(straight.abs(), null, straight);
+        }
+        String credit = val(columns, values, "credit", "credit amount");
+        String debit = val(columns, values, "debit", "debit amount");
+        String deposit = val(columns, values, "deposit");
+        String withdrawal = val(columns, values, "withdrawal");
+        if (!credit.isBlank()) return new AmountValue(parse(credit).abs(), FinancialTransaction.Type.INCOME, null);
+        if (!deposit.isBlank()) return new AmountValue(parse(deposit).abs(), FinancialTransaction.Type.INCOME, null);
+        if (!debit.isBlank()) return new AmountValue(parse(debit).abs(), FinancialTransaction.Type.EXPENSE, null);
+        if (!withdrawal.isBlank()) return new AmountValue(parse(withdrawal).abs(), FinancialTransaction.Type.EXPENSE, null);
+        throw new IllegalArgumentException("amount is required");
+    }
+    private BigDecimal parseAmountValue(String raw) { if (raw == null || raw.isBlank()) return null; String cleaned = raw.replace(",", "").replace("₹", "").replace("Rs", "").trim(); if (cleaned.isEmpty()) return null; return new BigDecimal(cleaned); }
+    private BigDecimal parse(String raw) { return parseAmountValue(raw); }
+    private String val(Map<String, Integer> columns, List<String> values, String... names) { Integer index = findColumn(columns, names); return index == null || index >= values.size() ? "" : values.get(index).replace(",", "").replace("₹", "").trim(); }
     private String value(Map<String, Integer> columns, List<String> values, String... names) { Integer index = findColumn(columns, names); if (index == null || index >= values.size() || values.get(index).isBlank()) throw new IllegalArgumentException(names[0] + " is required"); return values.get(index); }
     private String optional(Map<String, Integer> columns, List<String> values, String... names) { Integer index = findColumn(columns, names); return index == null || index >= values.size() ? "" : values.get(index); }
     private Integer findColumn(Map<String, Integer> columns, String... names) { for (String name : names) if (columns.containsKey(name)) return columns.get(name); return null; }

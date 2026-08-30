@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -121,6 +122,41 @@ class FeatureCoverageIntegrationTest {
                 .andExpect(jsonPath("$").exists());
         mockMvc.perform(get("/api/assistant/history").header("Authorization", auth))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void assistant_investUsesProfileDataAndReturnsAllocations() throws Exception {
+        String auth = authString();
+        mockMvc.perform(put("/api/profile")
+                        .header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "ageRange", "26-35", "employmentType", "Salaried",
+                                "monthlyIncome", 60000, "monthlyFixedExpenses", 20000,
+                                "savings", 50000, "existingInvestments", 10000,
+                                "debt", 0, "riskTolerance", "Moderate",
+                                "investmentExperience", "Beginner",
+                                "preferredCategories", "Mutual funds, Fixed deposits, Gold ETF"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/assistant/chat")
+                        .header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("message", "Should I invest 50000 in mutual funds?"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.intent").value("invest"))
+                .andExpect(jsonPath("$.reply").value(Matchers.containsString("%")));
+    }
+
+    @Test
+    void assistant_marketReturnsLiveSnapshot() throws Exception {
+        String auth = authString();
+        mockMvc.perform(post("/api/assistant/chat")
+                        .header("Authorization", auth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("message", "What is the market trend for TCS?"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.intent").value("market"))
+                .andExpect(jsonPath("$.reply").value(Matchers.containsString("TCS")));
     }
 
     // ---- 17. Decision & simulator / investments ----

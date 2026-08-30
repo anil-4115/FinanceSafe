@@ -16,3 +16,5 @@ Automated coverage: ✅ `FinancialFlowIntegrationTest` (incl. merchant-optional 
 | 3.10 | Cross-user transaction access | user B GET/PUT user A's id | 404 | |
 | 3.11 | CSV without `merchant` column | CSV with only `date`, `amount`, `type`, `category` | 200, rows imported as `Unknown` merchant | |
 | 3.12 | CSV merchant synonym | CSV uses `narration` (or `description`/`payee`) as the merchant column | 200, merchant taken from that column | |
+| 3.13 | CSV amount synonyms | `credit`/`debit` (or `deposit`/`withdrawal`) columns instead of `amount` | 200, credit→income, debit→expense | |
+| 3.14 | CSV no amount-like column | CSV with neither `amount` nor credit/debit | 400 with clear error naming accepted headers | |

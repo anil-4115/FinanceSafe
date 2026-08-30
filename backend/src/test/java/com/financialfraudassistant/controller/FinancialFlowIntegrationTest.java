@@ -13,10 +13,12 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.mock.web.MockMultipartFile;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -114,5 +116,31 @@ class FinancialFlowIntegrationTest {
         mockMvc.perform(get("/api/health-score").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.score").isNumber());
+    }
+
+    @Test
+    void csvImport_withoutMerchantColumn_importsRowsAsUnknown() throws Exception {
+        String token = registerAndGetToken();
+        String csv = "date,amount,type,category\n2026-08-05,1200,expense,Food\n2026-08-06,2500,expense,Travel\n";
+        MockMultipartFile file = new MockMultipartFile("file", "statement.csv", "text/csv", csv.getBytes());
+        mockMvc.perform(multipart("/api/transactions/import").file(file).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imported").value(2));
+        mockMvc.perform(get("/api/transactions").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].merchant").value("Unknown"));
+    }
+
+    @Test
+    void csvImport_withNarrationSynonym_usesNarrationAsMerchant() throws Exception {
+        String token = registerAndGetToken();
+        String csv = "date,narration,amount,category\n2026-08-07,Swiggy,460,Food\n";
+        MockMultipartFile file = new MockMultipartFile("file", "statement.csv", "text/csv", csv.getBytes());
+        mockMvc.perform(multipart("/api/transactions/import").file(file).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imported").value(1));
+        mockMvc.perform(get("/api/transactions").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].merchant").value("Swiggy"));
     }
 }

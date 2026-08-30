@@ -63,14 +63,15 @@ public class TransactionService {
             if (lines.size() < 2) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The CSV file has no transaction rows");
             List<String> headers = parseRow(lines.get(0)).stream().map(value -> value.trim().toLowerCase(Locale.ROOT)).toList();
             Map<String, Integer> column = java.util.stream.IntStream.range(0, headers.size()).boxed().collect(Collectors.toMap(headers::get, Function.identity(), (first, ignored) -> first));
-            requireColumn(column, "date", "transaction_date"); requireColumn(column, "merchant", "description"); requireColumn(column, "amount");
+            requireColumn(column, "date", "transaction_date"); requireColumn(column, "amount");
             List<FinancialTransaction> transactions = new ArrayList<>(); List<String> errors = new ArrayList<>();
             for (int row = 1; row < lines.size() && row <= MAX_IMPORT_ROWS; row++) {
                 if (lines.get(row).isBlank()) continue;
                 try {
                     List<String> values = parseRow(lines.get(row));
                     LocalDate date = LocalDate.parse(value(column, values, "date", "transaction_date"));
-                    String merchant = value(column, values, "merchant", "description").trim();
+                    String merchant = optional(column, values, "merchant", "description", "narration", "payee", "merchant_name", "transaction description").trim();
+                    if (merchant.isBlank()) merchant = "Unknown";
                     BigDecimal amount = new BigDecimal(value(column, values, "amount").replace(",", "").replace("₹", "").trim());
                     String rawType = optional(column, values, "type", "transaction_type");
                     FinancialTransaction.Type type = resolveType(rawType, amount);

@@ -60,7 +60,7 @@ function SpendingPage() {
         </form>
         <div className="panel csv-import">
           <div className="panel-header"><h3>Import bank statement</h3><span>CSV only</span></div>
-          <p>CSV headers required: <code>date</code>, <code>merchant</code>, <code>amount</code>. Optional: <code>type</code>, <code>category</code>, <code>notes</code>.</p>
+          <p>CSV headers required: <code>date</code>, <code>amount</code>. Optional: <code>merchant</code> (also <code>description</code>, <code>narration</code>, <code>payee</code>), <code>type</code>, <code>category</code>, <code>notes</code>. Rows without a merchant are shown as <code>Unknown</code>.</p>
           <label className="file-picker">{isImporting ? 'Importing...' : 'Choose CSV file'}<input type="file" accept=".csv,text/csv" onChange={importCsv} disabled={isImporting} /></label>
           <p className="muted">Negative amounts and debit rows are saved as expenses; other rows are treated as income.</p>
         </div>

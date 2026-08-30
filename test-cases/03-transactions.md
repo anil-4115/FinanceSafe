@@ -1,6 +1,6 @@
 # 03 — Transactions (CRUD + CSV import)
 
-Automated coverage: ✅ `FinancialFlowIntegrationTest`
+Automated coverage: ✅ `FinancialFlowIntegrationTest` (incl. merchant-optional CSV import tests)
 
 | # | Scenario | Steps | Expected | Actual |
 | -- | -------- | ----- | -------- | ------ |
@@ -14,3 +14,5 @@ Automated coverage: ✅ `FinancialFlowIntegrationTest`
 | 3.8 | CSV import valid | `POST /api/transactions/import` with valid CSV | 200 + count imported | |
 | 3.9 | CSV import invalid rows | CSV with some bad rows | 200, bad rows reported, valid kept | |
 | 3.10 | Cross-user transaction access | user B GET/PUT user A's id | 404 | |
+| 3.11 | CSV without `merchant` column | CSV with only `date`, `amount`, `type`, `category` | 200, rows imported as `Unknown` merchant | |
+| 3.12 | CSV merchant synonym | CSV uses `narration` (or `description`/`payee`) as the merchant column | 200, merchant taken from that column | |

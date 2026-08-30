@@ -8,18 +8,27 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  PieChart,
-  Pie,
+  BarChart,
+  Bar,
   Cell,
-  Legend,
 } from 'recharts';
 
 const initialForm = { transactionDate: new Date().toISOString().slice(0, 10), merchant: '', amount: '', transactionType: 'EXPENSE', category: 'General', notes: '' };
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-const inrTwo = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 
 const CATEGORY_COLORS = ['#5b7cff', '#2ec4b6', '#fbbf24', '#f87171', '#a78bfa', '#34d399', '#38bdf8', '#fb923c'];
+
+function toJsDate(iso) {
+  const d = new Date(`${iso}T00:00:00`);
+  return isNaN(d.getTime()) ? null : d;
+}
+function fmtAmount(value) {
+  return money.format(Number(value ?? 0) || 0);
+}
+function fmtAmountWhole(value) {
+  return inr.format(Number(value ?? 0) || 0);
+}
 
 // Derive safety status from the project's actual fraud/anomaly analysis on the transaction.
 function safetyStatus(transaction) {
@@ -104,21 +113,22 @@ function SpendingPage() {
         return { key, label, Expense: 0, Income: 0 };
       });
       for (const tx of transactions) {
-        const d = new Date(tx.transactionDate + 'T00:00:00');
+        const d = toJsDate(tx.transactionDate);
+        if (!d) continue;
         const key = `${d.getFullYear()}-${d.getMonth()}`;
         const bucket = monthBuckets.find((b) => b.key === key);
         if (!bucket) continue;
         const n = Number(tx.amount) || 0;
         if (tx.transactionType === 'INCOME') bucket.Income += n; else bucket.Expense += n;
       }
-      return monthBuckets.map((b) => ({ ...b, label: b.label }));
+      return monthBuckets;
     }
     const byDay = new Map();
     for (const tx of transactions) {
-      const d = new Date(tx.transactionDate + 'T00:00:00');
-      if (d < start || d > now) continue;
+      const d = toJsDate(tx.transactionDate);
+      if (!d || d < start || d > now) continue;
       const dayKey = d.toDateString();
-      if (!byDay.has(dayKey)) byDay.set(dayKey, { key: d.toISOString(), label: d.toLocaleDateString('en-IN', labelFmt), Expense: 0, Income: 0 });
+      if (!byDay.has(dayKey)) byDay.set(dayKey, { key: dayKey, label: d.toLocaleDateString('en-IN', labelFmt), Expense: 0, Income: 0 });
       const n = Number(tx.amount) || 0;
       const rec = byDay.get(dayKey);
       if (tx.transactionType === 'INCOME') rec.Income += n; else rec.Expense += n;
@@ -233,7 +243,7 @@ function SpendingPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                 <XAxis dataKey="label" stroke="#64748b" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value) => inrTwo.format(value)} contentStyle={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12 }} />
+                <Tooltip formatter={(value) => fmtAmount(value)} contentStyle={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12 }} />
                 <Area type="monotone" dataKey="Expense" name="Spent" stroke="#f87171" fillOpacity={1} fill="url(#spendExpense)" />
                 <Area type="monotone" dataKey="Income" name="Income" stroke="#4ade80" fillOpacity={1} fill="url(#spendIncome)" />
               </AreaChart>
@@ -249,13 +259,15 @@ function SpendingPage() {
           {categoryData.length === 0 ? <p className="muted">No expense categories yet.</p> : (
             <div className="chart-wrap small-chart">
               <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({ name, value }) => `${name} · ${inr.format(value)}`}>
+                <BarChart layout="vertical" data={categoryData} margin={{ left: 8, right: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis type="number" stroke="#64748b" tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" width={110} stroke="#64748b" tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value) => fmtAmountWhole(value)} contentStyle={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12 }} />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={22}>
                     {categoryData.map((entry, index) => <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={(value) => inr.format(value)} contentStyle={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12 }} />
-                  <Legend />
-                </PieChart>
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           )}

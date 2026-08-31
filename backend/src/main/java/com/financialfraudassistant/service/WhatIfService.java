@@ -1,5 +1,8 @@
 package com.financialfraudassistant.service;
 
+import com.financialfraudassistant.health.HealthScoreService;
+import com.financialfraudassistant.health.HealthScenario;
+
 import com.financialfraudassistant.dto.WhatIfRequest;
 import com.financialfraudassistant.dto.WhatIfResponse;
 import com.financialfraudassistant.model.FinancialProfile;

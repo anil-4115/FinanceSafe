@@ -1,8 +1,6 @@
-package com.financialfraudassistant.controller;
+package com.financialfraudassistant.health;
 
-import com.financialfraudassistant.dto.HealthScoreResponse;
 import com.financialfraudassistant.service.CurrentUserService;
-import com.financialfraudassistant.service.HealthScoreService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

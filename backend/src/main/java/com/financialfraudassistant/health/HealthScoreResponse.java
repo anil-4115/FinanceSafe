@@ -1,4 +1,4 @@
-package com.financialfraudassistant.dto;
+package com.financialfraudassistant.health;
 
 import java.util.List;
 

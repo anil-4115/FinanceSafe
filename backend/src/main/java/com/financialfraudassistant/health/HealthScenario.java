@@ -1,4 +1,4 @@
-package com.financialfraudassistant.service;
+package com.financialfraudassistant.health;
 
 import java.math.BigDecimal;
 

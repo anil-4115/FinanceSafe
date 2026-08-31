@@ -2,7 +2,8 @@ package com.financialfraudassistant.service;
 
 import com.financialfraudassistant.dto.AlertResponse;
 import com.financialfraudassistant.dto.DashboardResponse;
-import com.financialfraudassistant.dto.HealthScoreResponse;
+import com.financialfraudassistant.health.HealthScoreResponse;
+import com.financialfraudassistant.health.HealthScoreService;
 import com.financialfraudassistant.dto.TransactionResponse;
 import com.financialfraudassistant.model.Alert;
 import com.financialfraudassistant.model.FinancialProfile;

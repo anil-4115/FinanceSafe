@@ -1,4 +1,4 @@
-package com.financialfraudassistant.controller;
+package com.financialfraudassistant.health;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;

@@ -61,6 +61,8 @@ transactions — in one secure, self-hosted platform.
 - `POST /api/fraud/transaction-risk` scores a transaction against the user's
   own history
 - Detects unusually large amounts, new merchants, deviation from normal
+
+
   spending
 - Emits a human-readable explanation (never just "suspicious")
 

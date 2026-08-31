@@ -1,6 +1,6 @@
-package com.financialfraudassistant.service;
+package com.financialfraudassistant.health;
 
-import com.financialfraudassistant.dto.HealthScoreResponse;
+import com.financialfraudassistant.service.FinanceAnalyticsService;
 import com.financialfraudassistant.model.FinancialGoal;
 import com.financialfraudassistant.model.FinancialProfile;
 import com.financialfraudassistant.model.User;

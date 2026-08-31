@@ -1,5 +1,7 @@
 package com.financialfraudassistant.service;
 
+import com.financialfraudassistant.health.HealthScoreService;
+
 import com.financialfraudassistant.dto.AssistantRequest;
 import com.financialfraudassistant.dto.AssistantResponse;
 import com.financialfraudassistant.dto.DashboardResponse.CategorySpend;

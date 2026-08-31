@@ -64,7 +64,14 @@ function SpendingPage() {
     catch { setError('Could not load transactions. Please sign in again and retry.'); }
   }
   useEffect(() => {
-    loadTransactions();
+    (async () => {
+      try {
+        const { data } = await api.get('/transactions');
+        setTransactions(data);
+      } catch {
+        setError('Could not load transactions. Please sign in again and retry.');
+      }
+    })();
   }, []);
 
   async function addTransaction(event) {

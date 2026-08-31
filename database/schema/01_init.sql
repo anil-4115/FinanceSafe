@@ -70,7 +70,6 @@ CREATE INDEX IF NOT EXISTS idx_transactions_user_date
 CREATE TABLE IF NOT EXISTS budgets (
     id SERIAL PRIMARY KEY, user_id INT NOT NULL, category VARCHAR(100) NOT NULL,
     monthly_limit NUMERIC(12,2) NOT NULL CHECK (monthly_limit > 0), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_budget_user_category UNIQUE (user_id, category),
     CONSTRAINT fk_budgets_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

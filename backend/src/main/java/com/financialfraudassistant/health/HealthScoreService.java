@@ -1,7 +1,5 @@
-package com.financialfraudassistant.service;
+package com.financialfraudassistant.health;
 
-import com.financialfraudassistant.dto.HealthScoreResponse;
-import com.financialfraudassistant.dto.HealthScoreResponse.ComponentScore;
 import com.financialfraudassistant.model.Budget;
 import com.financialfraudassistant.model.FinancialGoal;
 import com.financialfraudassistant.model.FinancialProfile;
@@ -11,6 +9,7 @@ import com.financialfraudassistant.repository.BudgetRepository;
 import com.financialfraudassistant.repository.FinancialGoalRepository;
 import com.financialfraudassistant.repository.FinancialProfileRepository;
 import com.financialfraudassistant.repository.FinancialTransactionRepository;
+import com.financialfraudassistant.service.FinanceAnalyticsService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -70,7 +69,7 @@ public class HealthScoreService {
         BigDecimal debt = nonNull(profile != null ? profile.getDebt() : null)
                 .add(nonNull(scenario.getExtraDebt()));
 
-        List<ComponentScore> components = new ArrayList<>();
+        List<HealthScoreResponse.ComponentScore> components = new ArrayList<>();
         components.add(savingsRate(income, expense));
         components.add(expenseRatio(income, expense));
         components.add(emergencyFund(savings, expense));
@@ -89,49 +88,49 @@ public class HealthScoreService {
         return new HealthScoreResponse(totalScore, label(totalScore), components, strengths, weaknesses, recommendations);
     }
 
-    private ComponentScore savingsRate(BigDecimal income, BigDecimal expense) {
-        if (income.signum() <= 0) return new ComponentScore("Savings rate", 0, W_SAVINGS, "No monthly income captured yet.");
+    private HealthScoreResponse.ComponentScore savingsRate(BigDecimal income, BigDecimal expense) {
+        if (income.signum() <= 0) return new HealthScoreResponse.ComponentScore("Savings rate", 0, W_SAVINGS, "No monthly income captured yet.");
         BigDecimal rate = income.subtract(expense).divide(income, 4, RoundingMode.HALF_UP);
         int score = clamp((int) Math.round(rate.doubleValue() / 0.5 * 100));
-        return new ComponentScore("Savings rate", score, W_SAVINGS, rate.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP)
+        return new HealthScoreResponse.ComponentScore("Savings rate", score, W_SAVINGS, rate.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP)
                 + "% of income is kept as savings.");
     }
 
-    private ComponentScore expenseRatio(BigDecimal income, BigDecimal expense) {
-        if (income.signum() <= 0) return new ComponentScore("Expense ratio", 0, W_EXPENSE, "No monthly income captured yet.");
+    private HealthScoreResponse.ComponentScore expenseRatio(BigDecimal income, BigDecimal expense) {
+        if (income.signum() <= 0) return new HealthScoreResponse.ComponentScore("Expense ratio", 0, W_EXPENSE, "No monthly income captured yet.");
         BigDecimal ratio = expense.divide(income, 4, RoundingMode.HALF_UP);
         int score;
         if (ratio.doubleValue() <= 0.5) score = 100;
         else score = clamp((int) Math.round(100 - (ratio.doubleValue() - 0.5) * 150));
-        return new ComponentScore("Expense ratio", score, W_EXPENSE,
+        return new HealthScoreResponse.ComponentScore("Expense ratio", score, W_EXPENSE,
                 "Expenses consume " + ratio.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP) + "% of income.");
     }
 
-    private ComponentScore emergencyFund(BigDecimal savings, BigDecimal expense) {
-        if (expense.signum() <= 0) return new ComponentScore("Emergency fund", 80, W_EMERGENCY, "No monthly expense to cover yet.");
+    private HealthScoreResponse.ComponentScore emergencyFund(BigDecimal savings, BigDecimal expense) {
+        if (expense.signum() <= 0) return new HealthScoreResponse.ComponentScore("Emergency fund", 80, W_EMERGENCY, "No monthly expense to cover yet.");
         BigDecimal target = expense.multiply(BigDecimal.valueOf(3));
-        if (savings.signum() == 0) return new ComponentScore("Emergency fund", 0, W_EMERGENCY, "No savings set aside for emergencies.");
+        if (savings.signum() == 0) return new HealthScoreResponse.ComponentScore("Emergency fund", 0, W_EMERGENCY, "No savings set aside for emergencies.");
         BigDecimal covered = savings.divide(target, 4, RoundingMode.HALF_UP);
         int score = clamp((int) Math.round(covered.doubleValue() * 100));
-        return new ComponentScore("Emergency fund", score, W_EMERGENCY,
+        return new HealthScoreResponse.ComponentScore("Emergency fund", score, W_EMERGENCY,
                 "Savings cover " + covered.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP) + "% of a 3-month expense buffer.");
     }
 
-    private ComponentScore debtBurden(BigDecimal debt, BigDecimal income) {
-        if (debt.signum() == 0) return new ComponentScore("Debt burden", 100, W_DEBT, "No outstanding debt recorded.");
-        if (income.signum() <= 0) return new ComponentScore("Debt burden", 40, W_DEBT, "Debt exists but monthly income is unknown.");
+    private HealthScoreResponse.ComponentScore debtBurden(BigDecimal debt, BigDecimal income) {
+        if (debt.signum() == 0) return new HealthScoreResponse.ComponentScore("Debt burden", 100, W_DEBT, "No outstanding debt recorded.");
+        if (income.signum() <= 0) return new HealthScoreResponse.ComponentScore("Debt burden", 40, W_DEBT, "Debt exists but monthly income is unknown.");
         BigDecimal annualIncome = income.multiply(BigDecimal.valueOf(12));
         BigDecimal dti = debt.divide(annualIncome, 4, RoundingMode.HALF_UP);
         int score;
         if (dti.doubleValue() <= 0.33) score = 100;
         else score = clamp((int) Math.round(100 - (dti.doubleValue() - 0.33) / 0.67 * 100));
-        return new ComponentScore("Debt burden", score, W_DEBT,
+        return new HealthScoreResponse.ComponentScore("Debt burden", score, W_DEBT,
                 "Debt equals " + dti.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP) + "% of annual income.");
     }
 
-    private ComponentScore budgetDiscipline(User user) {
+    private HealthScoreResponse.ComponentScore budgetDiscipline(User user) {
         List<Budget> budgets = budgetRepository.findByUserIdOrderByCategory(user.getId());
-        if (budgets.isEmpty()) return new ComponentScore("Budget discipline", 55, W_BUDGET, "No monthly budgets set - create budgets to gain control.");
+        if (budgets.isEmpty()) return new HealthScoreResponse.ComponentScore("Budget discipline", 55, W_BUDGET, "No monthly budgets set - create budgets to gain control.");
         Map<String, BigDecimal> spent = currentMonthSpentByCategory(user);
         List<Integer> scores = new ArrayList<>();
         for (Budget budget : budgets) {
@@ -144,40 +143,40 @@ public class HealthScoreService {
             scores.add(score);
         }
         int score = scores.stream().mapToInt(Integer::intValue).sum() / scores.size();
-        return new ComponentScore("Budget discipline", score, W_BUDGET, budgets.size() + " budget(s) tracked against current-month spending.");
+        return new HealthScoreResponse.ComponentScore("Budget discipline", score, W_BUDGET, budgets.size() + " budget(s) tracked against current-month spending.");
     }
 
-    private ComponentScore goalProgress(User user, BigDecimal purchaseReduction) {
+    private HealthScoreResponse.ComponentScore goalProgress(User user, BigDecimal purchaseReduction) {
         List<FinancialGoal> goals = goalRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
-        if (goals.isEmpty()) return new ComponentScore("Goal progress", 50, W_GOAL, "No financial goals set - set a goal to track progress.");
-        return new ComponentScore("Goal progress", overallGoalProgressValue(user, purchaseReduction), W_GOAL,
+        if (goals.isEmpty()) return new HealthScoreResponse.ComponentScore("Goal progress", 50, W_GOAL, "No financial goals set - set a goal to track progress.");
+        return new HealthScoreResponse.ComponentScore("Goal progress", overallGoalProgressValue(user, purchaseReduction), W_GOAL,
                 "Combined progress towards all " + goals.size() + " goal(s).");
     }
 
-    private ComponentScore incomeStability(User user) {
+    private HealthScoreResponse.ComponentScore incomeStability(User user) {
         Map<YearMonth, BigDecimal> monthlyIncome = monthlyIncomeMap(user);
-        if (monthlyIncome.size() < 3) return new ComponentScore("Income stability", 60, W_INCOME,
+        if (monthlyIncome.size() < 3) return new HealthScoreResponse.ComponentScore("Income stability", 60, W_INCOME,
                 monthlyIncome.isEmpty() ? "Not enough transaction history to judge stability." : "Only " + monthlyIncome.size() + " month(s) of income history so far.");
         List<BigDecimal> values = monthlyIncome.values().stream().toList();
         BigDecimal mean = values.stream().reduce(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(values.size()), 4, RoundingMode.HALF_UP);
-        if (mean.signum() == 0) return new ComponentScore("Income stability", 0, W_INCOME, "No income recorded in recent months.");
+        if (mean.signum() == 0) return new HealthScoreResponse.ComponentScore("Income stability", 0, W_INCOME, "No income recorded in recent months.");
         double variance = values.stream().mapToDouble(v -> Math.pow(v.doubleValue() - mean.doubleValue(), 2)).average().orElse(0);
         double std = Math.sqrt(variance);
         double cv = std / mean.doubleValue();
         int score = cv < 0.15 ? 100 : clamp((int) Math.round(100 - cv * 250));
-        return new ComponentScore("Income stability", score, W_INCOME,
+        return new HealthScoreResponse.ComponentScore("Income stability", score, W_INCOME,
                 "Month-to-month income varies by " + Math.round(cv * 100) + "% of the average.");
     }
 
-    private ComponentScore diversification(FinancialProfile profile) {
+    private HealthScoreResponse.ComponentScore diversification(FinancialProfile profile) {
         int categoryCount = 0;
         if (profile != null && profile.getPreferredCategories() != null) {
             categoryCount = List.of(profile.getPreferredCategories().split(",")).stream().map(String::trim).filter(item -> !item.isBlank()).toList().size();
         }
         boolean hasInvestments = profile != null && profile.getExistingInvestments() != null && profile.getExistingInvestments().signum() > 0;
-        if (categoryCount >= 3) return new ComponentScore("Diversification", 85, W_DIVERSIFICATION, "Interests span " + categoryCount + " investment categories.");
-        if (hasInvestments) return new ComponentScore("Diversification", 70, W_DIVERSIFICATION, "Investments recorded - consider spreading across asset classes.");
-        return new ComponentScore("Diversification", 50, W_DIVERSIFICATION, "Add your investment categories to improve diversification insight.");
+        if (categoryCount >= 3) return new HealthScoreResponse.ComponentScore("Diversification", 85, W_DIVERSIFICATION, "Interests span " + categoryCount + " investment categories.");
+        if (hasInvestments) return new HealthScoreResponse.ComponentScore("Diversification", 70, W_DIVERSIFICATION, "Investments recorded - consider spreading across asset classes.");
+        return new HealthScoreResponse.ComponentScore("Diversification", 50, W_DIVERSIFICATION, "Add your investment categories to improve diversification insight.");
     }
 
     public BigDecimal overallGoalProgress(User user) {
@@ -215,7 +214,7 @@ public class HealthScoreService {
                         Collectors.reducing(BigDecimal.ZERO, FinancialTransaction::getAmount, BigDecimal::add)));
     }
 
-    private List<String> strengths(List<ComponentScore> components) {
+    private List<String> strengths(List<HealthScoreResponse.ComponentScore> components) {
         List<String> strengths = new ArrayList<>();
         components.stream().filter(component -> component.weight() > 0 && component.score() >= 70).forEach(component -> {
             switch (component.name()) {
@@ -233,7 +232,7 @@ public class HealthScoreService {
         return strengths;
     }
 
-    private List<String> weaknesses(List<ComponentScore> components) {
+    private List<String> weaknesses(List<HealthScoreResponse.ComponentScore> components) {
         List<String> weaknesses = new ArrayList<>();
         components.stream().filter(component -> component.weight() > 0 && component.score() < 50).forEach(component -> {
             switch (component.name()) {
@@ -251,7 +250,7 @@ public class HealthScoreService {
         return weaknesses;
     }
 
-    private List<String> recommendations(List<ComponentScore> components, FinancialProfile profile, BigDecimal savings, BigDecimal expense) {
+    private List<String> recommendations(List<HealthScoreResponse.ComponentScore> components, FinancialProfile profile, BigDecimal savings, BigDecimal expense) {
         List<String> recommendations = new ArrayList<>();
         components.forEach(component -> {
             if (component.score() < 65) {

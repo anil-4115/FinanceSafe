@@ -1,5 +1,7 @@
 package com.financialfraudassistant.dto;
 
+import com.financialfraudassistant.health.HealthScoreResponse;
+
 import java.math.BigDecimal;
 import java.util.List;
 

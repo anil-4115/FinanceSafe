@@ -15,7 +15,7 @@ public class InvestmentSimulatorService {
     public InvestmentSimulationResponse simulate(InvestmentSimulationRequest request) {
         BigDecimal initial = value(request.initialInvestment());
         BigDecimal monthly = value(request.monthlyContribution());
-        int years = request.years();
+        int years = Math.min(50, Math.max(1, request.years()));
         BigDecimal monthlyRate = request.annualReturnPct().divide(BigDecimal.valueOf(1200), 10, RoundingMode.HALF_UP);
 
         BigDecimal value = initial;

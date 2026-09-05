@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,8 +55,8 @@ class HealthScoreServiceTest {
         when(transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(any())).thenReturn(List.of());
         when(budgetRepository.findByUserIdOrderByCategory(any())).thenReturn(List.of());
         when(goalRepository.findByUserIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
-        when(analytics.averageMonthlyIncome(any())).thenReturn(BigDecimal.ZERO);
-        when(analytics.averageMonthlyExpense(any())).thenReturn(BigDecimal.ZERO);
+        when(analytics.averageMonthlyIncome(anyList())).thenReturn(BigDecimal.ZERO);
+        when(analytics.averageMonthlyExpense(anyList())).thenReturn(BigDecimal.ZERO);
     }
 
     @Test

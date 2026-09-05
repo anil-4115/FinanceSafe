@@ -59,7 +59,7 @@ public class InvestmentRecommendationService {
             allocations.add(new InvestmentRecommendationResponse.Allocation(spec.assetClass(), weight, allocationAmount, spec.guidance(), examples));
         }
 
-        String summary = "For a " + horizon + "-year horizon and a " + risk + " risk tolerance, a balanced plan spreads your " + amount.setScale(0) + " across " +
+        String summary = "For a " + horizon + "-year horizon and a " + risk + " risk tolerance, a balanced plan spreads your " + amount.setScale(0, RoundingMode.HALF_UP) + " across " +
                 allocations.stream().map(allocation -> allocation.assetClass().toLowerCase()).reduce((a, b) -> a + ", " + b).orElse("categories") + ".";
 
         return new InvestmentRecommendationResponse(risk, horizon, summary, allocations,

@@ -16,9 +16,9 @@ function ComparePage() {
   const [params] = useSearchParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
-
   const idsParam = params.get('ids') || '';
   const hasSelection = idsParam.split(',').some((value) => Number(value) > 0);
+  const [loading, setLoading] = useState(() => hasSelection);
 
   useEffect(() => {
     if (!hasSelection) return;
@@ -26,17 +26,28 @@ function ComparePage() {
       .split(',')
       .map((value) => Number(value))
       .filter((value) => value > 0);
-    api.get('/products/compare', { params: { ids } })
+    api.get('/products/compare', { params: { ids: ids.join(',') } })
       .then(({ data }) => { setData(data); setError(''); })
-      .catch(() => setError('Could not load the comparison.'));
+      .catch(() => setError('Could not load the comparison. Check that the link has 2–3 product ids.'))
+      .finally(() => setLoading(false));
   }, [idsParam, hasSelection]);
 
-  if (error) return <div className="page-shell"><p className="form-error" role="alert">{error}</p></div>;
+  if (error) {
+    return (
+      <div className="page-shell">
+        <h2>Compare Products</h2>
+        <p className="form-error" role="alert">{error}</p>
+        <Link to="/products" className="ghost-btn">Pick products to compare</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="page-shell">
       <h2>Compare Products</h2>
-      {!hasSelection || !data || data.products.length === 0 ? (
+      {loading ? (
+        <p className="muted">Loading comparison…</p>
+      ) : !hasSelection || !data || data.products.length === 0 ? (
         <div className="panel info-box">
           <p>Pick 2–3 products from the <Link to="/products">Products</Link> page and press compare, or add <code>?ids=</code> like <code>/compare?ids=1,3,9</code>.</p>
         </div>

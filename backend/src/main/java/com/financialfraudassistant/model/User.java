@@ -54,5 +54,7 @@ public class User {
     @JsonIgnore
     public String getPasswordHash() { return passwordHash; }
 
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
     public String getFullName() { return fullName; }
 }

@@ -7,6 +7,7 @@ import com.financialfraudassistant.model.User;
 import com.financialfraudassistant.repository.FinancialTransactionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
@@ -23,11 +24,13 @@ import java.util.Locale;
 import java.util.Map;
 
 @Service
+@Transactional
 public class TransactionService {
     private static final int MAX_IMPORT_ROWS = 1000;
     private final FinancialTransactionRepository repository;
     private final FraudDetectionService fraudDetectionService;
     public TransactionService(FinancialTransactionRepository repository, FraudDetectionService fraudDetectionService) { this.repository = repository; this.fraudDetectionService = fraudDetectionService; }
+    @Transactional(readOnly = true)
     public List<TransactionResponse> list(User user) {
         return repository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId()).stream().map(TransactionResponse::from).toList();
     }

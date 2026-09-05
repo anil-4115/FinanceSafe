@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,20 +19,24 @@ public class FinancialProfile {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private Long version;
+
     @OneToOne(optional = false)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
     @Column(name = "age_range") private String ageRange;
     @Column(name = "employment_type") private String employmentType;
-    @Column(name = "monthly_income") private BigDecimal monthlyIncome;
-    @Column(name = "monthly_fixed_expenses") private BigDecimal monthlyFixedExpenses;
-    private BigDecimal savings;
-    @Column(name = "existing_investments") private BigDecimal existingInvestments;
-    private BigDecimal debt;
+    @Column(name = "monthly_income", precision = 12, scale = 2) private BigDecimal monthlyIncome;
+    @Column(name = "monthly_fixed_expenses", precision = 12, scale = 2) private BigDecimal monthlyFixedExpenses;
+    @Column(precision = 12, scale = 2) private BigDecimal savings;
+    @Column(name = "existing_investments", precision = 12, scale = 2) private BigDecimal existingInvestments;
+    @Column(precision = 12, scale = 2) private BigDecimal debt;
     @Column(name = "risk_tolerance") private String riskTolerance;
     @Column(name = "investment_experience") private String investmentExperience;
-    @Column(name = "preferred_categories") private String preferredCategories;
+    @Column(name = "preferred_categories", columnDefinition = "TEXT") private String preferredCategories;
     @Column(name = "updated_at") private LocalDateTime updatedAt;
 
     protected FinancialProfile() { }

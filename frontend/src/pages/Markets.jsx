@@ -29,6 +29,7 @@ function MarketsPage() {
     try {
       const { data } = await api.get('/market/search', { params: term ? { q: term } : {} });
       setUniverse(data);
+      setError('');
     } catch {
       setError('Could not load the market universe.');
     }
@@ -37,12 +38,14 @@ function MarketsPage() {
   async function openSymbol(next) {
     setSymbol(next);
     setDetail(null);
+    setError('');
     try {
       const { data } = await api.get(`/market/${next}`);
       setDetail(data);
-      setError('');
     } catch {
-      setError('Could not load that symbol.');
+      setError('Could not load that symbol. Showing the list again below.');
+      setSymbol(null);
+      setDetail(null);
     }
   }
 
@@ -68,14 +71,21 @@ function MarketsPage() {
 
       {!symbol && (
         <section className="card-grid market-grid">
-          {universe.map((item) => (
+          {universe.length === 0 && !error ? (
+            <p className="muted">No symbols match "{query}". Try a symbol, sector or asset type.</p>
+          ) : universe.map((item) => (
             <button type="button" className="market-card" key={item.symbol} onClick={() => openSymbol(item.symbol)}>
               <strong>{item.symbol}</strong>
               <span>{item.name}</span>
               <small>{item.assetType} · {item.sector}</small>
+              <span className="market-details-link">View details →</span>
             </button>
           ))}
         </section>
+      )}
+
+      {symbol && !detail && !error && (
+        <p className="muted">Loading {symbol}…</p>
       )}
 
       {symbol && detail && (
@@ -96,10 +106,10 @@ function MarketsPage() {
           <div className="chart-wrap">
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e6e9f2" />
                 <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#64748b" domain={['auto', 'auto']} />
-                <Tooltip formatter={(value) => inr.format(value)} contentStyle={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12 }} />
+                <Tooltip formatter={(value) => inr.format(value)} contentStyle={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.15)', borderRadius: 12 }} labelStyle={{ color: '#0f172a' }} itemStyle={{ color: '#0f172a' }} />
                 <Line type="monotone" dataKey="price" stroke="#5b7cff" dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>

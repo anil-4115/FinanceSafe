@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
 import { api } from '../services/api';
 import { saveSession } from '../services/auth';
 
@@ -16,7 +17,7 @@ function RegisterPage() {
     try {
       const { data } = await api.post('/auth/register', form);
       saveSession(data);
-      navigate('/dashboard', { replace: true });
+      navigate('/overview', { replace: true });
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to create your account. Please try again.');
     } finally {
@@ -27,8 +28,10 @@ function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <span className="brand-mark" style={{ marginBottom: 16 }}><ShieldCheck size={20} /></span>
         <p className="eyebrow">Create account</p>
-        <h1>Register</h1>
+        <h1>Start protecting your money</h1>
+        <p className="auth-sub">Register once — scan scams and track your financial health forever.</p>
         <form className="auth-form" onSubmit={handleSubmit}>
           <label>
             Full name

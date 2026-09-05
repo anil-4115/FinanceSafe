@@ -103,12 +103,12 @@ function TransactionSafetyPage() {
       <section className="panel transaction-list">
         <div className="panel-header"><h3>Your transactions</h3><span>risk flagged where present</span></div>
         {transactions.length === 0 ? (
-          <p className="muted">No transactions yet. Add them under Spending or import a CSV statement.</p>
+          <p className="muted">No transactions yet. Add them under Transactions or import a CSV statement.</p>
         ) : transactions.map((transaction) => (
           <div className="transaction-row" key={transaction.id}>
             <div>
               <strong>{transaction.merchant}</strong>
-              <span>{transaction.transactionDate} · {transaction.category} · {transaction.source}</span>
+              <span>{transaction.transactionDate} · {transaction.category}{transaction.source ? ` · ${transaction.source}` : ''}</span>
               {transaction.riskScore != null && (
                 <span className={`risk-badge level-${String(transaction.riskLevel || '').toLowerCase()}`}>risk {transaction.riskScore}/100{transaction.riskReason ? ` — ${transaction.riskReason}` : ''}</span>
               )}

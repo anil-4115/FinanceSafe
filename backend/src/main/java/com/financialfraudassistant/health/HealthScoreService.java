@@ -50,16 +50,26 @@ public class HealthScoreService {
     }
 
     public HealthScoreResponse evaluate(User user) {
-        return evaluate(user, new HealthScenario());
+        return evaluate(user, new HealthScenario(), null);
     }
 
     public HealthScoreResponse evaluate(User user, HealthScenario scenario) {
+        return evaluate(user, scenario, null);
+    }
+
+    public HealthScoreResponse evaluate(User user, List<FinancialTransaction> transactions) {
+        return evaluate(user, new HealthScenario(), transactions);
+    }
+
+    public HealthScoreResponse evaluate(User user, HealthScenario scenario, List<FinancialTransaction> provided) {
+        List<FinancialTransaction> txns = provided != null
+                ? provided : transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId());
         FinancialProfile profile = profileRepository.findByUserId(user.getId()).orElse(null);
 
         BigDecimal baseIncome = profile != null && profile.getMonthlyIncome() != null
-                ? profile.getMonthlyIncome() : analytics.averageMonthlyIncome(user);
+                ? profile.getMonthlyIncome() : analytics.averageMonthlyIncome(txns);
         BigDecimal baseExpense = profile != null && profile.getMonthlyFixedExpenses() != null
-                ? profile.getMonthlyFixedExpenses() : analytics.averageMonthlyExpense(user);
+                ? profile.getMonthlyFixedExpenses() : analytics.averageMonthlyExpense(txns);
         BigDecimal income = baseIncome.add(nonNull(scenario.getMonthlyIncomeDelta()));
         BigDecimal expense = baseExpense.add(nonNull(scenario.getMonthlyExpenseDelta()));
         BigDecimal savings = nonNull(profile != null ? profile.getSavings() : null)
@@ -74,9 +84,9 @@ public class HealthScoreService {
         components.add(expenseRatio(income, expense));
         components.add(emergencyFund(savings, expense));
         components.add(debtBurden(debt, income));
-        components.add(budgetDiscipline(user));
+        components.add(budgetDiscipline(user, txns));
         components.add(goalProgress(user, BigDecimal.ZERO));
-        components.add(incomeStability(user));
+        components.add(incomeStability(txns));
         components.add(diversification(profile));
 
         int totalScore = components.stream().mapToInt(component -> component.score() * component.weight() / 100).sum();
@@ -128,10 +138,10 @@ public class HealthScoreService {
                 "Debt equals " + dti.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP) + "% of annual income.");
     }
 
-    private HealthScoreResponse.ComponentScore budgetDiscipline(User user) {
+    private HealthScoreResponse.ComponentScore budgetDiscipline(User user, List<FinancialTransaction> txns) {
         List<Budget> budgets = budgetRepository.findByUserIdOrderByCategory(user.getId());
         if (budgets.isEmpty()) return new HealthScoreResponse.ComponentScore("Budget discipline", 55, W_BUDGET, "No monthly budgets set - create budgets to gain control.");
-        Map<String, BigDecimal> spent = currentMonthSpentByCategory(user);
+        Map<String, BigDecimal> spent = currentMonthSpentByCategory(txns);
         List<Integer> scores = new ArrayList<>();
         for (Budget budget : budgets) {
             BigDecimal actual = spent.getOrDefault(budget.getCategory(), BigDecimal.ZERO);
@@ -153,8 +163,8 @@ public class HealthScoreService {
                 "Combined progress towards all " + goals.size() + " goal(s).");
     }
 
-    private HealthScoreResponse.ComponentScore incomeStability(User user) {
-        Map<YearMonth, BigDecimal> monthlyIncome = monthlyIncomeMap(user);
+    private HealthScoreResponse.ComponentScore incomeStability(List<FinancialTransaction> txns) {
+        Map<YearMonth, BigDecimal> monthlyIncome = monthlyIncomeMap(txns);
         if (monthlyIncome.size() < 3) return new HealthScoreResponse.ComponentScore("Income stability", 60, W_INCOME,
                 monthlyIncome.isEmpty() ? "Not enough transaction history to judge stability." : "Only " + monthlyIncome.size() + " month(s) of income history so far.");
         List<BigDecimal> values = monthlyIncome.values().stream().toList();
@@ -198,17 +208,17 @@ public class HealthScoreService {
         return overallGoalProgress(user, purchaseReduction).setScale(0, RoundingMode.HALF_UP).intValue();
     }
 
-    private Map<String, BigDecimal> currentMonthSpentByCategory(User user) {
+    private Map<String, BigDecimal> currentMonthSpentByCategory(List<FinancialTransaction> txns) {
         YearMonth current = YearMonth.now();
-        return transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId()).stream()
+        return txns.stream()
                 .filter(transaction -> transaction.getTransactionType() == FinancialTransaction.Type.EXPENSE)
                 .filter(transaction -> YearMonth.from(transaction.getTransactionDate()).equals(current))
                 .collect(Collectors.groupingBy(FinancialTransaction::getCategory,
                         Collectors.reducing(BigDecimal.ZERO, FinancialTransaction::getAmount, BigDecimal::add)));
     }
 
-    private Map<YearMonth, BigDecimal> monthlyIncomeMap(User user) {
-        return transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId()).stream()
+    private Map<YearMonth, BigDecimal> monthlyIncomeMap(List<FinancialTransaction> txns) {
+        return txns.stream()
                 .filter(transaction -> transaction.getTransactionType() == FinancialTransaction.Type.INCOME)
                 .collect(Collectors.groupingBy(transaction -> YearMonth.from(transaction.getTransactionDate()),
                         Collectors.reducing(BigDecimal.ZERO, FinancialTransaction::getAmount, BigDecimal::add)));

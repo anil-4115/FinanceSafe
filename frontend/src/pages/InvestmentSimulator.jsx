@@ -30,6 +30,7 @@ function InvestmentSimulatorPage() {
     event.preventDefault();
     setError('');
     setMessage('');
+    setResult(null);
     setLoading(true);
     try {
       const { data } = await api.post('/simulator/investment', {
@@ -99,10 +100,10 @@ function InvestmentSimulatorPage() {
                     <stop offset="95%" stopColor="#94a3b8" stopOpacity={0.03} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e6e9f2" />
                 <XAxis dataKey="year" stroke="#64748b" />
                 <YAxis stroke="#64748b" />
-                <Tooltip formatter={(value) => inr.format(value)} contentStyle={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12 }} />
+                <Tooltip formatter={(value) => inr.format(value)} contentStyle={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.15)', borderRadius: 12 }} labelStyle={{ color: '#0f172a' }} itemStyle={{ color: '#0f172a' }} />
                 <Legend />
                 <Area type="monotone" dataKey="value" name="Projected value" stroke="#2ec4b6" fill="url(#growthGrad)" strokeWidth={2} />
                 <Area type="monotone" dataKey="contributed" name="Contributed" stroke="#94a3b8" fill="url(#contributionGrad)" />

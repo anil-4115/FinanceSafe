@@ -5,12 +5,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "quiz_questions")
+@Table(name = "quiz_questions", indexes = @Index(name = "idx_quiz_module", columnList = "module_id"))
 public class QuizQuestion {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

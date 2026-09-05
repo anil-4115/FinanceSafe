@@ -5,17 +5,19 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "fraud_indicators")
+@Table(name = "fraud_indicators", indexes = @Index(name = "idx_fraud_indicator_analysis", columnList = "analysis_id"))
 public class FraudIndicator {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     @ManyToOne(optional = false) @JoinColumn(name = "analysis_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private FraudAnalysis analysis;
     @Column(nullable = false)
     private String kind;

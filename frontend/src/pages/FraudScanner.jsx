@@ -1,25 +1,27 @@
 import { useState } from 'react';
+import { ScanSearch, ShieldCheck } from 'lucide-react';
 import { api } from '../services/api';
+import PageHeader from '../components/PageHeader';
+import ScoreRing from '../components/ScoreRing';
 
 const examples = [
   'Your bank account will be blocked today.\nComplete KYC immediately:\nhttp://suspicious-link.example\nSend your OTP to verify.',
   'Congratulations! You won a lottery of ₹10,00,000. Click https://claim-lottery-winner.top and pay ₹5,000 processing fee to claim.',
 ];
 
+const signatures = [
+  { title: 'OTP / PIN harvesting language', text: 'Requests for verification codes, passwords or PINs.' },
+  { title: 'Urgency and last-warning pressure', text: '"Blocked today", "final notice", "act now".' },
+  { title: 'Impersonation', text: 'Bank, government, telecom or brand pretending to be official.' },
+  { title: 'KYC / lottery / payment threats', text: 'Account-blocking KYC, fake winnings, advance-fee traps.' },
+  { title: 'Suspicious links & lookalike domains', text: 'URLs that mimic real domains, often with a .top / .xyz twist.' },
+];
+
 function levelClass(level) {
   return String(level || '').toLowerCase().replace(/\s+/g, '-');
 }
 
-function RiskGauge({ score }) {
-  const color = score >= 75 ? '#f87171' : score >= 50 ? '#fb923c' : score >= 25 ? '#facc15' : '#4ade80';
-  return (
-    <div className="gauge" style={{ background: `conic-gradient(${color} ${score * 3.6}deg, rgba(148,163,184,0.18) 0deg)` }}>
-      <div className="gauge-inner"><strong dangerouslySetInnerHTML={{ __html: `${score}<span>/100</span>` }} /></div>
-    </div>
-  );
-}
-
-function ScamScannerPage() {
+function FraudScannerPage() {
   const [content, setContent] = useState('');
   const [type, setType] = useState('');
   const [result, setResult] = useState(null);
@@ -31,9 +33,19 @@ function ScamScannerPage() {
     event.preventDefault();
     setError('');
     setMessage('');
+    const text = content.trim();
+    if (!text) {
+      setError('Please paste a message to scan.');
+      return;
+    }
+    if (text.length > 10000) {
+      setError('Message is too long. Keep it under 10,000 characters.');
+      return;
+    }
+    setResult(null);
     setLoading(true);
     try {
-      const { data } = await api.post('/fraud/analyze', { content, type: type || null });
+      const { data } = await api.post('/fraud/analyze', { content: text, type: type || null });
       setResult(data);
       setMessage('Analysis saved to your fraud history.');
     } catch (requestError) {
@@ -45,8 +57,20 @@ function ScamScannerPage() {
 
   return (
     <div className="page-shell">
-      <h2>Scam Scanner</h2>
-      <section className="data-grid">
+      <PageHeader
+        eyebrow="Fraud detection"
+        title="Fraud Scanner"
+        intro="Paste any suspicious SMS, email, UPI request or link. The explainable AI engine scores it against known scam patterns."
+        actions={
+          result && (
+            <button className="ghost-btn" onClick={() => { setResult(null); setContent(''); setMessage(''); }}>
+              Scan another message
+            </button>
+          )
+        }
+      />
+
+      <section className="data-grid" style={{ gridTemplateColumns: 'minmax(0, 1.3fr) minmax(280px, 0.85fr)' }}>
         <form className="panel data-form scanner-form" onSubmit={scan}>
           <div className="panel-header"><h3>Paste a suspicious message or URL</h3><span>Explainable AI · no OTPs needed</span></div>
           <label className="wide-field">What kind of communication is this?
@@ -70,16 +94,21 @@ function ScamScannerPage() {
           </div>
           <button className="primary-btn" disabled={loading}>{loading ? 'Analysing…' : 'Scan for scam'}</button>
         </form>
+
         <aside className="panel safety-guide">
-          <h3>What the scanner looks for</h3>
-          <ul className="check-list">
-            <li>OTP / PIN harvesting language</li>
-            <li>Urgency and last-warning pressure</li>
-            <li>Bank, government or brand impersonation</li>
-            <li>KYC, lottery, payment and account-blocking threats</li>
-            <li>Suspicious links and lookalike domains</li>
-          </ul>
-          <p className="muted">Results are an AI risk score, not an official fraud verdict.</p>
+          <div className="panel-header" style={{ marginBottom: 10 }}><h3>What the scanner looks for</h3><ScanSearch size={18} style={{ color: 'var(--brand)' }} /></div>
+          <div className="risk-list">
+            {signatures.map((signature) => (
+              <div key={signature.title} style={{ display: 'flex', gap: 10 }}>
+                <ShieldCheck size={16} style={{ color: 'var(--success)', flexShrink: 0, marginTop: 3 }} />
+                <p style={{ margin: 0, color: 'var(--text-2)', fontSize: 13.5, lineHeight: 1.55 }}>
+                  <strong style={{ color: 'var(--text)', display: 'block' }}>{signature.title}</strong>
+                  {signature.text}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="muted" style={{ margin: '12px 0 0' }}>Results are an AI risk score, not an official fraud verdict.</p>
         </aside>
       </section>
 
@@ -87,32 +116,34 @@ function ScamScannerPage() {
       {error && <p className="form-error" role="alert">{error}</p>}
 
       {result && (
-        <section className="panel result-panel">
+        <section className="panel result-panel fade-up">
           <div className="result-head">
-            <RiskGauge score={result.riskScore} />
+            <ScoreRing score={Number(result.riskScore) || 0} size={170} label="/ 100" />
             <div className="result-facts">
               <span className={`risk-badge level-${levelClass(result.riskLevel)}`}>{result.riskLevel}</span>
               <h3>{result.scamType || 'No specific pattern matched'}</h3>
               <p>{result.summary}</p>
-              <small>Confidence: {result.confidence} · {new Date(result.createdAt).toLocaleString()}</small>
+              <small className="muted">Confidence: {result.confidence} · {new Date(result.createdAt).toLocaleString()}</small>
             </div>
           </div>
 
           <div className="content-grid two-column result-columns">
             <div>
-              <h4>Detected scam DNA ({result.indicators.length})</h4>
-              {result.indicators.length === 0 ? <p className="muted">No obvious scam signals found.</p> : (
-                <ul className="check-list">
+              <h4>Detected scam DNA ({(result.indicators || []).length})</h4>
+              {!result.indicators || result.indicators.length === 0 ? (
+                <p className="muted">No obvious scam signals found.</p>
+              ) : (
+                <ul className="check-list" style={{ margin: 0, paddingLeft: 22 }}>
                   {result.indicators.map((indicator, index) => (
-                    <li key={index}><strong>{indicator.label}</strong> <small>weight {indicator.weight}</small></li>
+                    <li key={index}><strong>{indicator.label}</strong> <span className="muted">weight {indicator.weight}</span></li>
                   ))}
                 </ul>
               )}
             </div>
             <div>
               <h4>Recommended actions</h4>
-              <ol className="number-list">
-                {result.recommendedActions.map((action, index) => <li key={index}>{action}</li>)}
+              <ol className="number-list" style={{ margin: 0, paddingLeft: 22 }}>
+                {(result.recommendedActions || []).map((action, index) => <li key={index}>{action}</li>)}
               </ol>
             </div>
           </div>
@@ -122,4 +153,4 @@ function ScamScannerPage() {
   );
 }
 
-export default ScamScannerPage;
+export default FraudScannerPage;

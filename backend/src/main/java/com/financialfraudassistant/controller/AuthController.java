@@ -1,8 +1,11 @@
 package com.financialfraudassistant.controller;
 
 import com.financialfraudassistant.dto.AuthResponse;
+import com.financialfraudassistant.dto.ForgotPasswordRequest;
+import com.financialfraudassistant.dto.ForgotPasswordResponse;
 import com.financialfraudassistant.dto.LoginRequest;
 import com.financialfraudassistant.dto.RegisterRequest;
+import com.financialfraudassistant.dto.ResetPasswordRequest;
 import com.financialfraudassistant.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,4 +28,14 @@ public class AuthController {
 
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) { return authService.login(request); }
+
+    @PostMapping("/forgot-password")
+    public ForgotPasswordResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return authService.forgotPassword(request.email());
+    }
+
+    @PostMapping("/reset-password")
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+    }
 }

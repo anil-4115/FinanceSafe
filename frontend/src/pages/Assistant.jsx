@@ -14,6 +14,23 @@ function AssistantPage() {
   const scrollRef = useRef(null);
 
   useEffect(() => {
+    let alive = true;
+    api.get('/assistant/history')
+      .then(({ data }) => {
+        if (!alive || !Array.isArray(data) || data.length === 0) return;
+        setMessages((current) => [
+          current[0],
+          ...data.map((message) => ({
+            role: message.role === 'user' ? 'user' : 'assistant',
+            content: message.content,
+          })),
+        ]);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
 

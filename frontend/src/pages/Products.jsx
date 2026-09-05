@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 
 function ProductsPage() {
@@ -7,13 +7,26 @@ function ProductsPage() {
   const [category, setCategory] = useState('');
   const [selected, setSelected] = useState([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [initialCompare] = useState(() => Number(searchParams.get('compare')) || null);
 
   useEffect(() => {
+    let alive = true;
     api.get('/products', { params: category ? { category } : {} })
-      .then(({ data }) => setProducts(data))
-      .catch(() => setError('Could not load financial products.'));
-  }, [category]);
+      .then(({ data }) => {
+        if (!alive) return;
+        setProducts(data);
+        setError('');
+        if (initialCompare) {
+          setSelected((current) => (current.includes(initialCompare) || current.length >= 3 ? current : [...current, initialCompare]));
+        }
+      })
+      .catch(() => { if (alive) setError('Could not load financial products.'); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [category, initialCompare]);
 
   const categories = useMemo(() => {
     const all = [];
@@ -51,7 +64,12 @@ function ProductsPage() {
 
       {error && <p className="form-error" role="alert">{error}</p>}
 
-      <section className="card-grid product-grid">
+      {loading ? (
+        <p className="muted">Loading products…</p>
+      ) : products.length === 0 ? (
+        <p className="muted">No products found for this category.</p>
+      ) : (
+        <section className="card-grid product-grid">
         {products.map((product) => (
           <article className="product-card" key={product.id}>
             <label className="product-pick">
@@ -69,10 +87,11 @@ function ProductsPage() {
             </div>
             <p className="muted">Best for: {product.suitableFor}</p>
             <p className="product-desc">{product.description}</p>
-            <Link className="ghost-btn inline-link" to={`/compare?ids=${product.id}`}>See in detail</Link>
+            <Link className="ghost-btn inline-link" to={`/products/${product.id}`}>See in detail</Link>
           </article>
         ))}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

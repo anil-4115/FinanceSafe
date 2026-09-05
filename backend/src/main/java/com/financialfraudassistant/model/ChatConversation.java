@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -12,7 +13,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "chat_conversations")
+@Table(name = "chat_conversations", indexes = @Index(name = "idx_chat_conv_user", columnList = "user_id"))
 public class ChatConversation {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -5,8 +5,10 @@ import com.financialfraudassistant.health.HealthScenario;
 
 import com.financialfraudassistant.dto.DecisionRequest;
 import com.financialfraudassistant.dto.DecisionResponse;
+import com.financialfraudassistant.model.DecisionAnalysis;
 import com.financialfraudassistant.model.FinancialProfile;
 import com.financialfraudassistant.model.User;
+import com.financialfraudassistant.repository.DecisionAnalysisRepository;
 import com.financialfraudassistant.repository.FinancialProfileRepository;
 import org.springframework.stereotype.Service;
 
@@ -24,13 +26,16 @@ public class DecisionService {
     private final HealthScoreService healthScoreService;
     private final FinanceAnalyticsService analytics;
     private final ScamAnalysisService scamAnalysisService;
+    private final DecisionAnalysisRepository decisionAnalysisRepository;
 
     public DecisionService(FinancialProfileRepository profileRepository, HealthScoreService healthScoreService,
-                           FinanceAnalyticsService analytics, ScamAnalysisService scamAnalysisService) {
+                           FinanceAnalyticsService analytics, ScamAnalysisService scamAnalysisService,
+                           DecisionAnalysisRepository decisionAnalysisRepository) {
         this.profileRepository = profileRepository;
         this.healthScoreService = healthScoreService;
         this.analytics = analytics;
         this.scamAnalysisService = scamAnalysisService;
+        this.decisionAnalysisRepository = decisionAnalysisRepository;
     }
 
     public DecisionResponse analyze(User user, DecisionRequest request) {
@@ -41,13 +46,29 @@ public class DecisionService {
                 analytics.averageMonthlyExpense(user));
         BigDecimal savings = profile != null && profile.getSavings() != null ? profile.getSavings() : BigDecimal.ZERO;
 
-        return switch (request.decisionType().toUpperCase(Locale.ROOT)) {
+        DecisionResponse response = switch (request.decisionType().toUpperCase(Locale.ROOT)) {
             case "PURCHASE" -> analyzePurchase(user, request, income, expense, savings, profile);
             case "LOAN" -> analyzeLoan(user, request, income, expense, savings);
             case "INVESTMENT" -> analyzeInvestment(user, request, income, expense, profile);
             case "PAYMENT_REQUEST" -> analyzePaymentRequest(user, request, income, expense, savings);
             default -> analyzeGeneral(user, request, income, expense, savings);
         };
+        persistAnalysis(user, request, response);
+        return response;
+    }
+
+    private void persistAnalysis(User user, DecisionRequest request, DecisionResponse response) {
+        decisionAnalysisRepository.save(new DecisionAnalysis(user,
+                response.decisionType().toUpperCase(Locale.ROOT),
+                request.amount(),
+                request.description(),
+                response.score(),
+                response.assessment(),
+                response.healthBefore(),
+                response.healthAfter(),
+                response.goalImpact(),
+                String.join("\n", response.reasons()),
+                String.join("\n", response.recommendations())));
     }
 
     private DecisionResponse analyzePurchase(User user, DecisionRequest request, BigDecimal income, BigDecimal expense,

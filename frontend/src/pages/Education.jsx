@@ -47,6 +47,7 @@ function EducationPage() {
   async function submitQuiz() {
     setLoading(true);
     setError('');
+    if (answers.length === 0) { setLoading(false); return; }
     try {
       const { data } = await api.post(`/education/${moduleDetail.id}/attempt`, { answers });
       setResult(data);
@@ -105,7 +106,7 @@ function EducationPage() {
             <button className="ghost-btn" onClick={goBack}>Back to lessons</button>
           </div>
           <div className="lesson-content">{moduleDetail.content.split(/\n/).map((line, index) => line.trim() ? <p key={index}>{line}</p> : null)}</div>
-          {moduleDetail.content.includes('quiz') || <button className="primary-btn" onClick={startQuiz}>Take the quiz</button>}
+          <button className="primary-btn" onClick={startQuiz}>Take the quiz</button>
         </section>
       )}
 
@@ -125,8 +126,8 @@ function EducationPage() {
               </div>
             </div>
           ))}
-          <button className="primary-btn" disabled={loading || answers.some((answer) => answer === null)} onClick={submitQuiz}>
-            {loading ? 'Grading…' : 'Submit answers'}
+          <button className="primary-btn" disabled={loading || quiz.length === 0 || answers.some((answer) => answer === null)} onClick={submitQuiz}>
+            {loading ? 'Grading…' : quiz.length === 0 ? 'No questions yet' : 'Submit answers'}
           </button>
         </section>
       )}

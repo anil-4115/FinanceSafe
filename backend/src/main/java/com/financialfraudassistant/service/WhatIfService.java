@@ -5,8 +5,10 @@ import com.financialfraudassistant.health.HealthScenario;
 
 import com.financialfraudassistant.dto.WhatIfRequest;
 import com.financialfraudassistant.dto.WhatIfResponse;
+import com.financialfraudassistant.model.DecisionAnalysis;
 import com.financialfraudassistant.model.FinancialProfile;
 import com.financialfraudassistant.model.User;
+import com.financialfraudassistant.repository.DecisionAnalysisRepository;
 import com.financialfraudassistant.repository.FinancialProfileRepository;
 import org.springframework.stereotype.Service;
 
@@ -22,12 +24,14 @@ public class WhatIfService {
     private final HealthScoreService healthScoreService;
     private final FinanceAnalyticsService analytics;
     private final FinancialProfileRepository profileRepository;
+    private final DecisionAnalysisRepository decisionAnalysisRepository;
 
     public WhatIfService(HealthScoreService healthScoreService, FinanceAnalyticsService analytics,
-                         FinancialProfileRepository profileRepository) {
+                         FinancialProfileRepository profileRepository, DecisionAnalysisRepository decisionAnalysisRepository) {
         this.healthScoreService = healthScoreService;
         this.analytics = analytics;
         this.profileRepository = profileRepository;
+        this.decisionAnalysisRepository = decisionAnalysisRepository;
     }
 
     public WhatIfResponse simulate(User user, WhatIfRequest request) {
@@ -83,10 +87,34 @@ public class WhatIfService {
         if (healthAfter < healthBefore) recommendations.add("Consider postponing or reducing this change to protect your financial health.");
         if (healthAfter > healthBefore) recommendations.add("This change improves your health score - try to make it a habit.");
 
-        return new WhatIfResponse(healthBefore, healthAfter, savings, savingsAfter,
+        WhatIfResponse response = new WhatIfResponse(healthBefore, healthAfter, savings, savingsAfter,
                 goalBefore.setScale(1, java.math.RoundingMode.HALF_UP),
                 goalAfter.setScale(1, java.math.RoundingMode.HALF_UP),
                 explanations, recommendations);
+        persistAnalysis(user, request, response);
+        return response;
+    }
+
+    private void persistAnalysis(User user, WhatIfRequest request, WhatIfResponse response) {
+        String goalImpact = "Goal progress: " + response.goalProgressBefore() + "% before, " + response.goalProgressAfter() + "% after.";
+        int safety = Math.max(0, Math.min(100, response.healthAfter()));
+        decisionAnalysisRepository.save(new DecisionAnalysis(user,
+                "WHAT_IF_" + request.scenario().toUpperCase(Locale.ROOT),
+                request.amount(),
+                request.scenario(),
+                safety,
+                assessment(safety),
+                response.healthBefore(),
+                response.healthAfter(),
+                goalImpact,
+                String.join("\n", response.explanations()),
+                String.join("\n", response.recommendations())));
+    }
+
+    private static String assessment(int score) {
+        if (score >= 75) return "SAFE";
+        if (score >= 55) return "CAUTION";
+        return "RISKY";
     }
 
     private static BigDecimal monthlyEmi(BigDecimal principal) {

@@ -27,39 +27,71 @@ public class FinanceAnalyticsService {
         this.transactionRepository = transactionRepository;
     }
 
+    public List<FinancialTransaction> transactions(User user) {
+        return transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId());
+    }
+
     public BigDecimal currentMonthIncome(User user) {
+        return currentMonthIncome(transactions(user));
+    }
+
+    public BigDecimal currentMonthExpenses(User user) {
+        return currentMonthExpenses(transactions(user));
+    }
+
+    public BigDecimal averageMonthlyExpense(User user) {
+        return averageMonthlyExpense(transactions(user));
+    }
+
+    public BigDecimal averageMonthlyIncome(User user) {
+        return averageMonthlyIncome(transactions(user));
+    }
+
+    public List<MonthlySpend> monthlySeries(User user, int months) {
+        return monthlySeries(transactions(user), months);
+    }
+
+    public List<CategorySpend> categoryBreakdown(User user) {
+        return categoryBreakdown(transactions(user));
+    }
+
+    public LocalDate oldestTransactionDate(User user) {
+        return transactions(user).stream().map(FinancialTransaction::getTransactionDate).min(LocalDate::compareTo).orElse(null);
+    }
+
+    public BigDecimal currentMonthIncome(List<FinancialTransaction> txns) {
         YearMonth current = YearMonth.now();
-        return transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId()).stream()
+        return txns.stream()
                 .filter(transaction -> transaction.getTransactionType() == FinancialTransaction.Type.INCOME)
                 .filter(transaction -> YearMonth.from(transaction.getTransactionDate()).equals(current))
                 .map(FinancialTransaction::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    public BigDecimal currentMonthExpenses(User user) {
+    public BigDecimal currentMonthExpenses(List<FinancialTransaction> txns) {
         YearMonth current = YearMonth.now();
-        return transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId()).stream()
+        return txns.stream()
                 .filter(transaction -> transaction.getTransactionType() == FinancialTransaction.Type.EXPENSE)
                 .filter(transaction -> YearMonth.from(transaction.getTransactionDate()).equals(current))
                 .map(FinancialTransaction::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    public BigDecimal averageMonthlyExpense(User user) {
-        Map<YearMonth, BigDecimal> byMonth = monthlyExpenseMap(user);
+    public BigDecimal averageMonthlyExpense(List<FinancialTransaction> txns) {
+        Map<YearMonth, BigDecimal> byMonth = monthlyExpenseMap(txns);
         if (byMonth.isEmpty()) return BigDecimal.ZERO;
         BigDecimal total = byMonth.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         return total.divide(BigDecimal.valueOf(byMonth.size()), 2, RoundingMode.HALF_UP);
     }
 
-    public BigDecimal averageMonthlyIncome(User user) {
-        Map<YearMonth, BigDecimal> byMonth = monthlyIncomeMap(user);
+    public BigDecimal averageMonthlyIncome(List<FinancialTransaction> txns) {
+        Map<YearMonth, BigDecimal> byMonth = monthlyIncomeMap(txns);
         if (byMonth.isEmpty()) return BigDecimal.ZERO;
         BigDecimal total = byMonth.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         return total.divide(BigDecimal.valueOf(byMonth.size()), 2, RoundingMode.HALF_UP);
     }
 
-    public List<MonthlySpend> monthlySeries(User user, int months) {
-        Map<YearMonth, BigDecimal> expenses = monthlyExpenseMap(user);
-        Map<YearMonth, BigDecimal> incomes = monthlyIncomeMap(user);
+    public List<MonthlySpend> monthlySeries(List<FinancialTransaction> txns, int months) {
+        Map<YearMonth, BigDecimal> expenses = monthlyExpenseMap(txns);
+        Map<YearMonth, BigDecimal> incomes = monthlyIncomeMap(txns);
         List<MonthlySpend> series = new ArrayList<>();
         YearMonth start = YearMonth.now().minusMonths(months - 1L);
         for (int i = 0; i < months; i++) {
@@ -71,10 +103,10 @@ public class FinanceAnalyticsService {
         return series;
     }
 
-    public List<CategorySpend> categoryBreakdown(User user) {
+    public List<CategorySpend> categoryBreakdown(List<FinancialTransaction> txns) {
         YearMonth current = YearMonth.now();
         Map<String, BigDecimal> byCategory = new LinkedHashMap<>();
-        for (FinancialTransaction transaction : transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId())) {
+        for (FinancialTransaction transaction : txns) {
             if (transaction.getTransactionType() == FinancialTransaction.Type.EXPENSE
                     && YearMonth.from(transaction.getTransactionDate()).equals(current)) {
                 byCategory.merge(transaction.getCategory(), transaction.getAmount(), BigDecimal::add);
@@ -91,9 +123,9 @@ public class FinanceAnalyticsService {
         return result;
     }
 
-    private Map<YearMonth, BigDecimal> monthlyExpenseMap(User user) {
+    private Map<YearMonth, BigDecimal> monthlyExpenseMap(List<FinancialTransaction> txns) {
         Map<YearMonth, BigDecimal> byMonth = new LinkedHashMap<>();
-        for (FinancialTransaction transaction : transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId())) {
+        for (FinancialTransaction transaction : txns) {
             if (transaction.getTransactionType() == FinancialTransaction.Type.EXPENSE) {
                 byMonth.merge(YearMonth.from(transaction.getTransactionDate()), transaction.getAmount(), BigDecimal::add);
             }
@@ -101,21 +133,13 @@ public class FinanceAnalyticsService {
         return byMonth;
     }
 
-    private Map<YearMonth, BigDecimal> monthlyIncomeMap(User user) {
+    private Map<YearMonth, BigDecimal> monthlyIncomeMap(List<FinancialTransaction> txns) {
         Map<YearMonth, BigDecimal> byMonth = new LinkedHashMap<>();
-        for (FinancialTransaction transaction : transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId())) {
+        for (FinancialTransaction transaction : txns) {
             if (transaction.getTransactionType() == FinancialTransaction.Type.INCOME) {
                 byMonth.merge(YearMonth.from(transaction.getTransactionDate()), transaction.getAmount(), BigDecimal::add);
             }
         }
         return byMonth;
-    }
-
-    public List<FinancialTransaction> transactions(User user) {
-        return transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId());
-    }
-
-    public LocalDate oldestTransactionDate(User user) {
-        return transactions(user).stream().map(FinancialTransaction::getTransactionDate).min(LocalDate::compareTo).orElse(null);
     }
 }

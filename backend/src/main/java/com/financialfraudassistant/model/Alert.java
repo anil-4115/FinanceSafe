@@ -1,7 +1,7 @@
 package com.financialfraudassistant.model;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-@Entity @Table(name = "alerts")
+@Entity @Table(name = "alerts", indexes = @Index(name = "idx_alert_user", columnList = "user_id"))
 public class Alert {
     public enum Severity { INFO, WARNING, CRITICAL }
     public enum Status { OPEN, RESOLVED }

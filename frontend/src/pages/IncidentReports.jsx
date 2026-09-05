@@ -16,7 +16,11 @@ function IncidentReportsPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    api.get('/incidents')
+      .then(({ data }) => { setIncidents(data); setError(''); })
+      .catch(() => setError('Could not load incident reports.'));
+  }, []);
 
   async function load() {
     try {
@@ -92,7 +96,7 @@ function IncidentReportsPage() {
               </div>
               <div className="history-extra">
                 <span className="muted">{new Date(incident.createdAt).toLocaleString()}</span>
-                {incident.amountAtRisk != null && <span>At risk: {inr.format(Number(incident.amountAtRisk))}</span>}
+                {incident.amountAtRisk != null && Number(incident.amountAtRisk) > 0 && <span>At risk: {inr.format(Number(incident.amountAtRisk))}</span>}
               </div>
             </div>
           ))}

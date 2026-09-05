@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -17,7 +18,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "fraud_analyses")
+@Table(name = "fraud_analyses", indexes = {
+        @Index(name = "idx_fraud_analysis_user", columnList = "user_id"),
+        @Index(name = "idx_fraud_analysis_risk", columnList = "risk_label")
+})
 public class FraudAnalysis {
 
     public enum InputType { TEXT, URL }

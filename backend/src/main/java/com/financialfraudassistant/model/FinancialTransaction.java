@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -16,7 +17,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "financial_transactions")
+@Table(name = "financial_transactions", indexes = @Index(name = "idx_txn_user", columnList = "user_id"))
 public class FinancialTransaction {
     public enum Type { INCOME, EXPENSE }
     public enum Source { MANUAL, CSV }
@@ -34,6 +35,7 @@ public class FinancialTransaction {
     @Column(nullable = false) private String category;
     @Enumerated(EnumType.STRING) @Column(nullable = false)
     private Source source;
+    @Column(columnDefinition = "TEXT")
     private String notes;
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

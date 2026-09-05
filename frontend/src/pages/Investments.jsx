@@ -20,6 +20,7 @@ function InvestmentsPage() {
     event.preventDefault();
     setError('');
     setMessage('');
+    setResult(null);
     setLoading(true);
     try {
       const { data } = await api.post('/investments/recommendation', {

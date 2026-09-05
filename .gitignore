@@ -4,6 +4,7 @@ dist/
 .env.*
 .DS_Store
 *.log
+*.err
 backend/target/
 backend/.idea/
 backend/.classpath

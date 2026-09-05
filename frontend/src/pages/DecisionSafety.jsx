@@ -35,6 +35,7 @@ function DecisionSafetyPage() {
     event.preventDefault();
     setError('');
     setMessage('');
+    setResult(null);
     setLoading(true);
     const payload = {
       decisionType: form.decisionType,
@@ -106,7 +107,7 @@ function DecisionSafetyPage() {
             <div className="result-facts">
               <span className={`risk-badge level-${String(result.assessment || '').toLowerCase()}`}>{result.assessment}</span>
               <h3>{result.summary}</h3>
-              <p>{result.goalImpact}</p>
+              {result.goalImpact && <p>{result.goalImpact}</p>}
               {result.projectedMonthlyCost != null && <p className="muted">Estimated monthly cost: {inr.format(Number(result.projectedMonthlyCost))}</p>}
             </div>
           </div>

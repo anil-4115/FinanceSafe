@@ -7,6 +7,7 @@ import com.financialfraudassistant.health.HealthScoreService;
 import com.financialfraudassistant.dto.TransactionResponse;
 import com.financialfraudassistant.model.Alert;
 import com.financialfraudassistant.model.FinancialProfile;
+import com.financialfraudassistant.model.FinancialTransaction;
 import com.financialfraudassistant.model.User;
 import com.financialfraudassistant.repository.AlertRepository;
 import com.financialfraudassistant.repository.FinancialProfileRepository;
@@ -38,7 +39,10 @@ public class DashboardService {
     }
 
     public DashboardResponse build(User user) {
-        HealthScoreResponse health = healthScoreService.evaluate(user);
+        List<FinancialTransaction> transactions =
+                transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId());
+
+        HealthScoreResponse health = healthScoreService.evaluate(user, transactions);
         List<Alert> openAlerts = alertRepository.findByUserIdOrderByCreatedAtDesc(user.getId()).stream()
                 .filter(alert -> alert.getStatus() != Alert.Status.RESOLVED)
                 .toList();
@@ -46,17 +50,17 @@ public class DashboardService {
 
         FinancialProfile profile = profileRepository.findByUserId(user.getId()).orElse(null);
         BigDecimal income = profile != null && profile.getMonthlyIncome() != null
-                ? profile.getMonthlyIncome() : analytics.currentMonthIncome(user);
+                ? profile.getMonthlyIncome() : analytics.currentMonthIncome(transactions);
         BigDecimal expenses = profile != null && profile.getMonthlyFixedExpenses() != null
-                ? profile.getMonthlyFixedExpenses() : analytics.currentMonthExpenses(user);
+                ? profile.getMonthlyFixedExpenses() : analytics.currentMonthExpenses(transactions);
         BigDecimal savings = profile != null && profile.getSavings() != null
                 ? profile.getSavings() : BigDecimal.ZERO;
         int goalProgress = healthScoreService.overallGoalProgress(user).setScale(0, java.math.RoundingMode.HALF_UP).intValue();
 
-        int fraudSafetyScore = fraudSafetyScore(user);
-        List<String> riskReasons = fraudRiskReasons(user);
+        int fraudSafetyScore = fraudSafetyScore(user, transactions);
+        List<String> riskReasons = fraudRiskReasons(user, transactions);
 
-        List<TransactionResponse> flagged = transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId()).stream()
+        List<TransactionResponse> flagged = transactions.stream()
                 .filter(transaction -> transaction.getRiskScore() != null && transaction.getRiskScore() >= 50)
                 .limit(5)
                 .map(TransactionResponse::from)
@@ -75,15 +79,15 @@ public class DashboardService {
                 expenses,
                 savings,
                 goalProgress,
-                analytics.monthlySeries(user, 6),
-                analytics.categoryBreakdown(user),
+                analytics.monthlySeries(transactions, 6),
+                analytics.categoryBreakdown(transactions),
                 recentAlerts,
                 flagged,
                 recommendationTitle,
                 recommendationBody);
     }
 
-    private int fraudSafetyScore(User user) {
+    private int fraudSafetyScore(User user, List<FinancialTransaction> transactions) {
         int score = 100;
         LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
         List<Alert> recent = alertRepository.findByUserIdOrderByCreatedAtDesc(user.getId()).stream()
@@ -98,13 +102,13 @@ public class DashboardService {
             boolean resolved = alert.getStatus() == Alert.Status.RESOLVED;
             score -= resolved ? deduction / 2 : deduction;
         }
-        long risky = transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId()).stream()
+        long risky = transactions.stream()
                 .filter(transaction -> transaction.getRiskScore() != null && transaction.getRiskScore() >= 70).count();
         score -= (int) risky * 4;
         return Math.max(0, Math.min(100, score));
     }
 
-    private List<String> fraudRiskReasons(User user) {
+    private List<String> fraudRiskReasons(User user, List<FinancialTransaction> transactions) {
         List<String> reasons = new ArrayList<>();
         LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
         List<Alert> alerts = alertRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
@@ -117,7 +121,7 @@ public class DashboardService {
                 .filter(alert -> alert.getSeverity() != Alert.Severity.INFO).count();
         if (openHigh > 0) reasons.add(openHigh + " open high-severity alert(s) still need your attention.");
 
-        long risky = transactionRepository.findByUserIdOrderByTransactionDateDescIdDesc(user.getId()).stream()
+        long risky = transactions.stream()
                 .filter(transaction -> transaction.getRiskScore() != null && transaction.getRiskScore() >= 70).count();
         if (risky > 0) reasons.add(risky + " transaction(s) were auto-flagged with high risk in your history.");
 

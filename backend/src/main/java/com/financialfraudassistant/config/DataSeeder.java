@@ -1,36 +1,80 @@
 package com.financialfraudassistant.config;
 
+import com.financialfraudassistant.model.Asset;
 import com.financialfraudassistant.model.EducationModule;
 import com.financialfraudassistant.model.FinancialProduct;
+import com.financialfraudassistant.model.MarketPriceHistory;
 import com.financialfraudassistant.model.QuizQuestion;
+import com.financialfraudassistant.repository.AssetRepository;
 import com.financialfraudassistant.repository.EducationModuleRepository;
 import com.financialfraudassistant.repository.FinancialProductRepository;
+import com.financialfraudassistant.repository.MarketPriceHistoryRepository;
 import com.financialfraudassistant.repository.QuizQuestionRepository;
+import com.financialfraudassistant.service.MarketService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
 
+    private static final int PERSISTED_HISTORY_WEEKS = 52;
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DataSeeder.class);
+
     private final FinancialProductRepository productRepository;
     private final EducationModuleRepository moduleRepository;
     private final QuizQuestionRepository questionRepository;
+    private final AssetRepository assetRepository;
+    private final MarketPriceHistoryRepository marketPriceHistoryRepository;
 
     public DataSeeder(FinancialProductRepository productRepository, EducationModuleRepository moduleRepository,
-                      QuizQuestionRepository questionRepository) {
+                      QuizQuestionRepository questionRepository, AssetRepository assetRepository,
+                      MarketPriceHistoryRepository marketPriceHistoryRepository) {
         this.productRepository = productRepository;
         this.moduleRepository = moduleRepository;
         this.questionRepository = questionRepository;
+        this.assetRepository = assetRepository;
+        this.marketPriceHistoryRepository = marketPriceHistoryRepository;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
+        log.info("DataSeeder run: products={} modules={} assets={}",
+                productRepository.count(), moduleRepository.count(), assetRepository.count());
         if (productRepository.count() == 0) seedProducts();
         if (moduleRepository.count() == 0) seedEducation();
+        if (assetRepository.count() == 0) seedMarket();
+    }
+
+    private void seedMarket() {
+        List<Asset> assets;
+        try {
+            assets = assetRepository.saveAll(MarketService.builtinAssets());
+            log.info("DataSeeder stored {} assets", assets.size());
+        } catch (RuntimeException e) {
+            log.warn("Market seeding skipped (could not store assets): {}", e.getMessage());
+            return;
+        }
+        for (Asset asset : assets) {
+            try {
+                List<MarketPriceHistory> history = new ArrayList<>();
+                for (com.financialfraudassistant.dto.MarketDetailResponse.PricePoint point
+                        : MarketService.generateWeeklyHistory(asset, LocalDate.now(), PERSISTED_HISTORY_WEEKS)) {
+                    history.add(new MarketPriceHistory(asset, LocalDate.parse(point.date()), point.price()));
+                }
+                marketPriceHistoryRepository.saveAll(history);
+                log.info("DataSeeder stored {} weekly price points for {}", history.size(), asset.getSymbol());
+            } catch (RuntimeException e) {
+                log.warn("Market seeding skipped for {} (could not store price history): {}", asset.getSymbol(),
+                        e.getMessage());
+            }
+        }
     }
 
     private void seedProducts() {

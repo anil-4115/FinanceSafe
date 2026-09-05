@@ -29,6 +29,12 @@ function WhatIfSimulatorPage() {
     event.preventDefault();
     setError('');
     setMessage('');
+    const requiresAmount = form.scenario !== 'EXPENSE_INCREASE';
+    if (requiresAmount && (!form.amount || Number(form.amount) <= 0)) {
+      setError('Enter an amount for this scenario to see its effect.');
+      return;
+    }
+    setResult(null);
     setLoading(true);
     try {
       const { data } = await api.post('/simulator/what-if', {
@@ -59,9 +65,11 @@ function WhatIfSimulatorPage() {
             </select>
           </label>
           <p className="muted wide-field">{active?.hint}</p>
-          <label>Amount (₹)<input type="number" min="0" step="any" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} />
-            <small className="muted">Required for savings, investing, purchases, loans and spending cuts</small>
-          </label>
+          {form.scenario !== 'EXPENSE_INCREASE' || !form.expensePctChange ? (
+            <label>Amount (₹)<input type="number" min="0" step="any" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} required={form.scenario !== 'EXPENSE_INCREASE'} />
+              <small className="muted">Required for savings, investing, purchases, loans and spending cuts</small>
+            </label>
+          ) : null}
           {form.scenario === 'EXPENSE_INCREASE' && (
             <label>Expense increase (%)<input type="number" min="0" max="100" step="any" value={form.expensePctChange} onChange={(event) => setForm({ ...form, expensePctChange: event.target.value })} />
               <small className="muted">Used when amount is left at 0</small>
